@@ -17,6 +17,11 @@ _TERRAIN_COVER = (0.22, 0.34, 0.28, 1.0)
 _TERRAIN_DESTROYED = (0.16, 0.16, 0.18, 1.0)
 _SELECT = (1.0, 0.92, 0.4, 1.0)
 _HOVER = (0.9, 0.9, 0.95, 1.0)
+_REACH = (0.32, 0.62, 0.95, 0.22)
+_REACH_HOVER = (0.45, 0.80, 1.0, 0.45)
+_PATH = (0.55, 0.85, 1.0, 1.0)
+_TARGET = (0.98, 0.45, 0.35, 1.0)
+_AIM_OK = (0.45, 0.95, 0.5, 1.0)
 
 
 def _col(rgba: tuple[float, float, float, float]) -> int:
@@ -29,8 +34,14 @@ def _pts(cam: Camera, h, origin: tuple[float, float]):
     return [ImVec2(x + ox, y + oy) for x, y in cam.hex_corners_screen(h)]
 
 
+def _center(cam: Camera, h, origin: tuple[float, float]) -> ImVec2:
+    cx, cy = cam.hex_to_screen(h)
+    return ImVec2(cx + origin[0], cy + origin[1])
+
+
 def draw_map(state, cam: Camera, origin: tuple[float, float], size: tuple[float, float],
-             selected_id: str | None, hovered_hex) -> None:
+             selected_id: str | None, hovered_hex, *,
+             overlay=None, origin_hex=None) -> None:
     dl = imgui.get_window_draw_list()
     ox, oy = origin
     w, h = size
@@ -61,6 +72,27 @@ def draw_map(state, cam: Camera, origin: tuple[float, float], size: tuple[float,
         if "indestructible" in t.tags and not t.destroyed:
             for i in range(6):
                 dl.add_line(pts[i], pts[(i + 1) % 6], _col((0.5, 0.5, 0.55, 1.0)), 2.0)
+
+    # interaction overlay (under tokens)
+    if overlay is not None and overlay.mode != "idle":
+        if overlay.reachable:
+            for dest in overlay.reachable:
+                fill = _REACH_HOVER if dest == hovered_hex else _REACH
+                dl.add_convex_poly_filled(_pts(cam, dest, origin), _col(fill))
+            path = overlay.reachable.get(hovered_hex)
+            if path and len(path) > 1:
+                for a, b in zip(path[:-1], path[1:], strict=True):
+                    dl.add_line(_center(cam, a, origin), _center(cam, b, origin), _col(_PATH), 2.5)
+        for tid in overlay.targets:
+            t = state.units.get(tid)
+            if t is not None:
+                c = _center(cam, t.pos, origin)
+                dl.add_circle(c, max(6.0, cam.scale * 0.9), _col(_TARGET), 0, 2.5)
+        if origin_hex is not None and hovered_hex is not None and state.unit_at(hovered_hex):
+            tid = state.unit_at(hovered_hex).id
+            if tid in overlay.targets:
+                dl.add_line(_center(cam, origin_hex, origin),
+                            _center(cam, hovered_hex, origin), _col(_AIM_OK), 2.0)
 
     # hovered
     if hovered_hex is not None:
@@ -130,6 +162,40 @@ def draw_stats_panel(state, selected_id: str | None) -> None:
     imgui.separator()
     for line in fmt.unit_stat_lines(u):
         imgui.text(line)
+
+
+def draw_tile_panel(state, sel_hex, selected_id: str | None) -> None:
+    from foosim.engine import hexgrid
+    from foosim.engine.visibility import VisibilityConfig, line_of_sight
+
+    if sel_hex is None:
+        imgui.text_disabled("click an empty hex to inspect it")
+        return
+    col, row = hexgrid.to_offset_oddr(sel_hex)
+    imgui.text(f"hex {tuple(sel_hex)}   offset (col {col}, row {row})")
+    if not state.mapspec.in_bounds(sel_hex):
+        imgui.text_disabled("off board")
+        return
+    imgui.text(f"ground elevation {state.mapspec.elevation.get(sel_hex, 0)}")
+    t = state.terrain.get(sel_hex)
+    if t is None:
+        imgui.text("terrain: open")
+    else:
+        state_str = "destroyed" if t.destroyed else f"{t.damage_marks} damage marks"
+        imgui.text(f"terrain: {', '.join(sorted(t.tags))}  h{t.height}  ({state_str})")
+    occ = state.unit_at(sel_hex)
+    imgui.text(f"occupant: {fmt.unit_label(occ) if occ else '-'}")
+    if selected_id and selected_id in state.units:
+        u = state.units[selected_id]
+        imgui.separator()
+        dist = hexgrid.distance(u.pos, sel_hex)
+        los = line_of_sight(state, u.pos, sel_hex, VisibilityConfig.from_rules({}))
+        note = ""
+        if not los.los:
+            note = f"  blocked by {tuple(los.blocked_by)}" if los.blocked_by else "  no LOS"
+        elif los.cover:
+            note = "  (cover)"
+        imgui.text(f"from {u.id}: distance {dist}   LOS {'yes' if los.los else 'no'}{note}")
 
 
 def draw_event_log(frames, cursor: int, filt: str, follow: bool) -> None:

@@ -11,6 +11,9 @@ Explode); weapon/upgrade/ammo "special" behaviours are marked ``TODO(m7)``.
 
 from __future__ import annotations
 
+import re
+from dataclasses import dataclass
+
 from foosim.engine import hexgrid
 from foosim.engine.actions import (
     DisengageAction,
@@ -26,7 +29,7 @@ from foosim.engine.rng import Rng
 from foosim.engine.state import GameState, Unit, WeaponInstance
 from foosim.engine.visibility import VisibilityConfig, line_of_sight
 
-__all__ = ["apply"]
+__all__ = ["AttackPlan", "apply", "plan_attack"]
 
 _BLAST_CFG = VisibilityConfig(mode="strict_center")
 
@@ -137,6 +140,41 @@ def _indices_for(u, a, kind: str, all_flag: bool) -> list[int]:
     return [i]
 
 
+def _effective_to_hit(state, u, t, wspec, rules, *, kind: str, bolster: str | None):
+    """The to-hit target number (before Position Compromised, which is consumed in
+    ``_resolve_attack``), plus cover / long-range flags. Returns
+    ``(tn, cover, long_range, reason)`` where ``reason`` is a string if the attack
+    is geometrically illegal. Shared by the resolver and :func:`plan_attack`."""
+    th = rules.to_hit
+    specials = set(wspec.get("special", []))
+    tn = u.stat("cs")
+    cover = long_range = False
+    dist = hexgrid.distance(u.pos, t.pos)
+    if kind == "ranged":
+        mr = wspec.get("max_range_inches")
+        if mr is not None and dist > rules.inches_to_hexes(mr):
+            return tn, cover, long_range, "target out of weapon range"
+        los = line_of_sight(state, u.pos, t.pos, VisibilityConfig.from_rules(rules.raw))
+        if "ignores_los" not in specials and not los.los:
+            return tn, cover, long_range, "no line of sight to target"
+        cover = bool(los.cover) and "ignores_cover" not in specials
+        long_range = dist > rules.inches_to_hexes(th["long_range_inches"])
+        ignores_lr = (
+            "ignores_long_range_penalty" in specials or "long_range_targeting" in u.upgrades
+        )
+        if long_range and not ignores_lr:
+            tn += th["long_range_cs_penalty"]
+        if bolster == "focused_fire":
+            tn -= th["focused_cs_bonus"]
+    else:  # melee
+        reach = rules.inches_to_hexes(wspec.get("reach_inches", 1))
+        if dist > reach:
+            return tn, cover, long_range, "melee target out of reach"
+        if bolster == "focused_strike":
+            tn -= th["focused_cs_bonus"]
+    return tn, cover, long_range, None
+
+
 def _do_ranged(s, a: RangedAttackAction, rules, rng, ev) -> None:
     u = s.units[a.unit_id]
     if is_engaged(s, u):
@@ -146,29 +184,14 @@ def _do_ranged(s, a: RangedAttackAction, rules, rng, ev) -> None:
     t = s.units.get(a.target_id)
     if t is None or t.out_of_action:
         raise IllegalAction("invalid ranged target")
-    cfg = VisibilityConfig.from_rules(rules.raw)
-    th = rules.to_hit
     for i in _indices_for(u, a, "ranged", a.bolster == "unleash_hell"):
         w = u.weapons[i]
         wspec = rules.weapon(w.weapon_id)
-        specials = set(wspec.get("special", []))
-        dist = hexgrid.distance(u.pos, t.pos)
-        mr = wspec.get("max_range_inches")
-        if mr is not None and dist > rules.inches_to_hexes(mr):
-            raise IllegalAction("target out of weapon range")
-        los = line_of_sight(s, u.pos, t.pos, cfg)
-        if "ignores_los" not in specials and not los.los:
-            raise IllegalAction("no line of sight to target")
-        cover = bool(los.cover) and "ignores_cover" not in specials
-        tn = u.stat("cs")
-        long_range = dist > rules.inches_to_hexes(th["long_range_inches"])
-        ignores_lr = (
-            "ignores_long_range_penalty" in specials or "long_range_targeting" in u.upgrades
+        tn, cover, long_range, reason = _effective_to_hit(
+            s, u, t, wspec, rules, kind="ranged", bolster=a.bolster
         )
-        if long_range and not ignores_lr:
-            tn += th["long_range_cs_penalty"]
-        if a.bolster == "focused_fire":
-            tn -= th["focused_cs_bonus"]
+        if reason:
+            raise IllegalAction(reason)
         _resolve_attack(s, u, t, w, wspec, rules, rng, ev, tn=tn, cover=cover, kind="ranged",
                         long_range=long_range)
         if t.out_of_action:
@@ -202,14 +225,13 @@ def _do_melee(s, a: MeleeAttackAction, rules, rng, ev) -> None:
     for i in _indices_for(u, a, "melee", a.bolster == "fury"):
         w = u.weapons[i]
         wspec = rules.weapon(w.weapon_id)
-        reach = rules.inches_to_hexes(wspec.get("reach_inches", 1))
-        if hexgrid.distance(u.pos, t.pos) > reach:
-            raise IllegalAction("melee target out of reach")
-        tn = u.stat("cs")
-        if a.bolster == "focused_strike":
-            tn -= rules.to_hit["focused_cs_bonus"]
-        _resolve_attack(s, u, t, w, wspec, rules, rng, ev, tn=tn, cover=False, kind="melee",
-                        long_range=False)
+        tn, cover, long_range, reason = _effective_to_hit(
+            s, u, t, wspec, rules, kind="melee", bolster=a.bolster
+        )
+        if reason:
+            raise IllegalAction(reason)
+        _resolve_attack(s, u, t, w, wspec, rules, rng, ev, tn=tn, cover=cover, kind="melee",
+                        long_range=long_range)
         if t.out_of_action:
             break
 
@@ -217,7 +239,6 @@ def _do_melee(s, a: MeleeAttackAction, rules, rng, ev) -> None:
 def _resolve_attack(s, u, t, weap: WeaponInstance, wspec, rules, rng, ev, *,
                     tn: int, cover: bool, kind: str, long_range: bool) -> None:
     th = rules.to_hit
-    specials = set(wspec.get("special", []))
     pc = bool(t.statuses.get("position_compromised"))
     if pc:
         tn -= 1
@@ -266,15 +287,116 @@ def _resolve_attack(s, u, t, weap: WeaponInstance, wspec, rules, rng, ev, *,
         _explode_check(s, t, rng, rules, ev, cause="catastrophic", credited_to=u.id)
         return
 
+    _apply_damage(s, t, dmg, ap=_ap_for(weap, wspec, t, rules), cover=cover,
+                  rules=rules, rng=rng, ev=ev, source=u.id)
+
+
+def _ap_for(weap: WeaponInstance, wspec: dict, target: Unit, rules) -> int:
+    ammo_specials = rules.ammo_spec(weap.ammo_id).get("special", []) if weap.ammo_id else []
     ap = 0
-    if "armor_penetration" in specials:
+    if "armor_penetration" in set(wspec.get("special", [])):
         ap += 1
-    if weap.ammo_id:
-        aspec = rules.ammo_spec(weap.ammo_id)
-        if "armor_penetration" in set(aspec.get("special", [])):
-            ap += 1
-    ap += t.modifiers.get("incoming_ap", 0)
-    _apply_damage(s, t, dmg, ap=ap, cover=cover, rules=rules, rng=rng, ev=ev, source=u.id)
+    if "armor_penetration" in set(ammo_specials):
+        ap += 1
+    return ap + target.modifiers.get("incoming_ap", 0)
+
+
+# --------------------------------------------------------------------------
+# pre-roll preview  (pure; no RNG, no mutation - the UI's shot planner)
+# --------------------------------------------------------------------------
+
+
+@dataclass
+class AttackPlan:
+    legal: bool
+    reason: str | None
+    kind: str
+    weapon_id: str
+    effective_cs: int          # displayed to-hit number (Position Compromised folded in)
+    cover: bool
+    long_range: bool
+    position_compromised: bool
+    hit_chance: float          # P(hit or crit)
+    crit_chance: float         # P(natural 6)
+    catastrophic_chance: float
+    save_tn: int
+    ap: int
+    damage_expr: str
+    expected_damage_through: float
+    heat_cost: int             # activation HEAT this action would add
+
+
+def _expected_roll(expr: str) -> float:
+    e = str(expr).strip().lower()
+    if e.isdigit():
+        return float(e)
+    m = re.fullmatch(r"(\d*)d(\d+)", e)
+    if not m:
+        return 0.0
+    return int(m.group(1) or "1") * (int(m.group(2)) + 1) / 2.0
+
+
+def _hit_chance(tn: int, th: dict) -> float:
+    miss, crit = th["always_miss_roll"], th["always_crit_roll"]
+    return sum(1 for r in range(1, 7) if r == crit or (r != miss and r >= tn)) / 6.0
+
+
+def plan_attack(state, attacker_id: str, target_id: str, weapon_index: int, rules,
+                *, kind: str, bolster: str | None = None) -> AttackPlan:
+    """What a Ranged/Melee attack would look like, without rolling. Uses the same
+    modifier logic as the resolver (:func:`_effective_to_hit`, :func:`_ap_for`)."""
+    th = rules.to_hit
+    u = state.units[attacker_id]
+    t = state.units.get(target_id)
+    heat_cost = (1 if state.actions_taken >= 1 else 0)
+    heat_cost += 1 if (bolster and bolster != "reboot") else 0
+
+    def _fail(reason: str, tn: int = 0, cover: bool = False, lr: bool = False,
+              pc: bool = False, expr: str = "0") -> AttackPlan:
+        return AttackPlan(False, reason, kind, "", tn or u.stat("cs"), cover, lr, pc,
+                          0.0, 0.0, 0.0, 0, 0, expr, 0.0, heat_cost)
+
+    if weapon_index is None or weapon_index < 0 or weapon_index >= len(u.weapons):
+        return _fail("no such weapon")
+    weap = u.weapons[weapon_index]
+    wspec = rules.weapon(weap.weapon_id)
+    expr = str(wspec["damage"])
+    if t is None or t.out_of_action:
+        return _fail("invalid target", expr=expr)
+    if weap.kind != kind:
+        return _fail(f"weapon is not {kind}", expr=expr)
+    if weap.used_this_turn:
+        return _fail("weapon already used this turn", expr=expr)
+    if weap.disabled:
+        return _fail("weapon disabled", expr=expr)
+    if kind == "ranged" and is_engaged(state, u):
+        return _fail("attacker is engaged", expr=expr)
+
+    tn, cover, long_range, reason = _effective_to_hit(
+        state, u, t, wspec, rules, kind=kind, bolster=bolster
+    )
+    pc = bool(t.statuses.get("position_compromised"))
+    disp_tn = tn - (1 if pc else 0)
+    if reason is not None:
+        return _fail(reason, tn=disp_tn, cover=cover, lr=long_range, pc=pc, expr=expr)
+
+    hit_p = _hit_chance(disp_tn, th)
+    crit_p = 1.0 / 6.0
+    confirm_p = sum(1 for r in range(1, 7) if r >= u.stat("cs")) / 6.0
+    ap = _ap_for(weap, wspec, t, rules)
+    save_tn = t.stat("ar") + (th["cover_ar_bonus"] if cover else 0) - ap
+    save_p = sum(1 for r in range(1, 7) if r >= save_tn or r == th["ar_always_saves_on"]) / 6.0
+    e_base = _expected_roll(expr)
+    crit_bonus = th["crit_bonus_damage"] + (1 if "sensor_array" in u.upgrades else 0)
+    p_hit_noncrit = max(0.0, hit_p - crit_p)
+    e_through = ((p_hit_noncrit * e_base) + (crit_p * (e_base + crit_bonus))) * (1.0 - save_p)
+    return AttackPlan(
+        legal=True, reason=None, kind=kind, weapon_id=weap.weapon_id,
+        effective_cs=disp_tn, cover=cover, long_range=long_range, position_compromised=pc,
+        hit_chance=hit_p, crit_chance=crit_p, catastrophic_chance=crit_p * confirm_p,
+        save_tn=save_tn, ap=ap, damage_expr=expr,
+        expected_damage_through=e_through, heat_cost=heat_cost,
+    )
 
 
 # --------------------------------------------------------------------------

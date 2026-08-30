@@ -339,10 +339,35 @@ the `ui` extra; risky imgui-bundle API points checked by introspection.
 **Not verified (needs a display):** actual window render / widget behaviour /
 `hello_imgui.run`. Run `uv run --extra ui foosim-ui --seed 3` to confirm.
 
-### M6 — Interactive play
-Unit selection, action bar + Bolster, mouse target/destination picking, reachable
-+ LOS/range overlays, pre-roll preview. Hotseat + play-vs-`Policy`.
-**Done when:** a human plays a full 2v2 to a decision through the UI.
+### M6 — Interactive play ✅ *(logic verified headless; window needs a visual check)*
+- **Engine:** `resolve.plan_attack` + `AttackPlan` — the resolver and the UI now
+  share one to-hit/AP path (`_effective_to_hit`, `_ap_for`); pure, no RNG. Reports
+  legality/reason, effective CS, cover/long-range, hit/crit/catastrophic chance,
+  save TN, ~expected damage through, HEAT cost.
+- **Terrain:** `sim/setups.scatter_terrain` (seeded procedural buildings + cover,
+  avoids deploy zones/units); `skirmish_2v2(terrain="scatter"|"fixed"|"none")`,
+  scatter is the default — goldens regenerated.
+- **`ui/session.Session`:** interactive driver. Each side is a `Policy` or
+  `"human"`; keeps full frame history; `submit`, `fast_forward_to_decision`,
+  `rewind_to_cursor` (truncate + resume a different line), scrub-is-view-only.
+  Same nav surface as `Timeline`.
+- **`ui/interaction.py`:** `compute_overlay` → reachable hexes/paths (move,
+  ±run) or `plan_attack`-legal target ids; `submode` maps the bolster checkbox.
+- **`ui/render.py`:** map overlays (reachable fill, hovered path, target rings,
+  aim line) + `draw_tile_panel` (hex coords/offset, elevation, terrain, occupant,
+  distance + LOS/cover from the selected unit).
+- **`ui/app.py`:** Session-backed watch; `--play` (you = side 0) / `--hotseat`;
+  Actions dock (activate → action buttons → click map to target → submit;
+  bolster checkbox; live pre-roll preview); tile inspector in the Stats dock;
+  "rewind to here" / ">> live" in the toolbar.
+**Verified headless:** `plan_attack` numbers vs hand calc + vs resolver
+`effective_cs`; Session watch/play/hotseat drive to completion, deterministic,
+rewind/scrub semantics; overlay legality matches `plan_attack`; scatter terrain
+seeded + never on deploy zones. **Not verified:** the imgui window itself — run
+`uv run --extra ui foosim-ui --play --seed 3`.
+Bolster is one checkbox mapping to a default sub-mode (run / focused_fire /
+focused_strike / dodge / reboot); full sub-mode + charge/snap-shot picker is
+deferred.
 
 ### M7 — Full content + generators
 Wire every weapon/ammo/upgrade/frame via `engine/effects.py` registry + data.

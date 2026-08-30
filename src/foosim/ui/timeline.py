@@ -97,6 +97,10 @@ class Timeline:
         self.cursor = new
         return moved
 
+    def advance_one(self) -> bool:
+        """Uniform with ``Session.advance_one`` - one step forward, loading lazily."""
+        return self.step(1)
+
     def at_end(self) -> bool:
         return self._exhausted and self.cursor == self.last_index
 
