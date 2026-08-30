@@ -56,6 +56,7 @@ class UiState:
     action_mode: str = "idle"
     pending_weapon: int | None = None
     bolster: bool = False
+    last_error: str = ""
     log_filter: str = ""
     follow_log: bool = True
     autofit: bool = True
@@ -69,6 +70,18 @@ class UiState:
     def reset_targeting(self) -> None:
         self.action_mode = "idle"
         self.pending_weapon = None
+        self.bolster = False  # bolster is opt-in per action
+
+    def try_submit(self, decision) -> bool:
+        """Submit to the Session, surfacing an illegal action instead of crashing."""
+        try:
+            self.driver.submit(decision)
+        except IllegalAction as e:
+            self.last_error = str(e)
+            return False
+        self.last_error = ""
+        self.reset_targeting()
+        return True
 
     def advance_playback(self, dt: float) -> None:
         if not self.playing:
@@ -223,22 +236,26 @@ def _actions(ui: UiState) -> None:
         imgui.text("game over — " + ("draw" if w in (-1, None) else f"side {w} wins"))
         return
     if not sess.waiting_for_human():
+        ui.last_error = ""
         imgui.text_disabled(f"waiting for AI (side {sess.pending_side()})")
         return
 
     st = sess.live
     side = st.active_side
 
+    def _begin(mode: str, weapon: int | None) -> None:
+        ui.action_mode, ui.pending_weapon, ui.last_error = mode, weapon, ""
+
     if st.activating_unit is None:
         imgui.text(f"side {side}: choose a unit to activate")
         for u in sorted((x for x in st.units.values()
                          if x.side == side and not x.activated and not x.out_of_action),
                         key=lambda x: x.id):
-            if imgui.button(f"activate {u.id}  ({u.name})"):
-                sess.submit(ActivateUnit(u.id))
+            if imgui.button(f"activate {u.id}  ({u.name})") and ui.try_submit(ActivateUnit(u.id)):
                 ui.selected_id = u.id
         if st.pass_tokens.get(side, 0) > 0 and imgui.button("pass"):
-            sess.submit(Pass())
+            ui.try_submit(Pass())
+        _show_error(ui)
         return
 
     u = st.units[st.activating_unit]
@@ -254,20 +271,18 @@ def _actions(ui: UiState) -> None:
             continue
         can_ranged = w.kind == "ranged" and not engaged
         if can_ranged and imgui.button(f"ranged: {w.weapon_id}##r{i}"):
-            ui.action_mode, ui.pending_weapon = "targeting_ranged", i
+            _begin("targeting_ranged", i)
         if w.kind == "melee" and imgui.button(f"melee: {w.weapon_id}##m{i}"):
-            ui.action_mode, ui.pending_weapon = "targeting_melee", i
+            _begin("targeting_melee", i)
     if engaged:
         if imgui.button("disengage"):
-            ui.action_mode, ui.pending_weapon = "targeting_disengage", None
+            _begin("targeting_disengage", None)
     elif imgui.button("move"):
-        ui.action_mode, ui.pending_weapon = "targeting_move", None
+        _begin("targeting_move", None)
     if u.heat > 0 and not u.statuses.get("purged_this_turn") and imgui.button("purge heat"):
-        sess.submit(PurgeHeatAction(u.id, bolster="reboot" if ui.bolster else None))
-        ui.reset_targeting()
+        ui.try_submit(PurgeHeatAction(u.id, bolster="reboot" if ui.bolster else None))
     if imgui.button("end activation"):
-        sess.submit(EndActivation())
-        ui.reset_targeting()
+        ui.try_submit(EndActivation())
 
     if ui.action_mode != "idle":
         imgui.separator()
@@ -277,6 +292,15 @@ def _actions(ui: UiState) -> None:
         if imgui.button("cancel"):
             ui.reset_targeting()
         _preview(ui, sess, u, resolve)
+    _show_error(ui)
+
+
+def _show_error(ui: UiState) -> None:
+    from imgui_bundle import imgui
+
+    if ui.last_error:
+        imgui.separator()
+        imgui.text_colored(imgui.ImVec4(1.0, 0.45, 0.4, 1.0), ui.last_error)
 
 
 def _preview(ui: UiState, sess, u, resolve) -> None:
@@ -369,29 +393,23 @@ def _map(ui: UiState) -> None:
 def _handle_click(ui: UiState, st, hexpos, overlay) -> None:
     unit = st.unit_at(hexpos)
     if overlay is not None and ui.is_session and ui.driver.waiting_for_human():
-        sess = ui.driver
         u = st.units[st.activating_unit]
-        try:
-            if ui.action_mode == "targeting_move" and hexpos in overlay.reachable:
-                sess.submit(MoveAction(u.id, overlay.reachable[hexpos],
-                                       bolster="run" if ui.bolster else None))
-                ui.reset_targeting()
-                return
-            if ui.action_mode == "targeting_disengage" and hexpos in overlay.reachable:
-                sess.submit(DisengageAction(u.id, overlay.reachable[hexpos],
-                                            bolster="dodge" if ui.bolster else None))
-                ui.reset_targeting()
-                return
-            attacking = ui.action_mode in ("targeting_ranged", "targeting_melee")
-            if attacking and unit is not None and unit.id in overlay.targets:
-                is_ranged = ui.action_mode == "targeting_ranged"
-                cls = RangedAttackAction if is_ranged else MeleeAttackAction
-                sess.submit(cls(u.id, unit.id, ui.pending_weapon,
-                                bolster=submode(ui.action_mode, ui.bolster)))
-                ui.reset_targeting()
-                return
-        except IllegalAction:
-            ui.reset_targeting()
+        decision = None
+        if ui.action_mode == "targeting_move" and hexpos in overlay.reachable:
+            decision = MoveAction(u.id, overlay.reachable[hexpos],
+                                  bolster="run" if ui.bolster else None)
+        elif ui.action_mode == "targeting_disengage" and hexpos in overlay.reachable:
+            decision = DisengageAction(u.id, overlay.reachable[hexpos],
+                                       bolster="dodge" if ui.bolster else None)
+        elif ui.action_mode in ("targeting_ranged", "targeting_melee") \
+                and unit is not None and unit.id in overlay.targets:
+            is_ranged = ui.action_mode == "targeting_ranged"
+            cls = RangedAttackAction if is_ranged else MeleeAttackAction
+            decision = cls(u.id, unit.id, ui.pending_weapon,
+                           bolster=submode(ui.action_mode, ui.bolster))
+        if decision is not None:
+            ui.try_submit(decision)
+            return
     # plain selection
     if unit is not None:
         ui.selected_id = unit.id
@@ -403,6 +421,19 @@ def _handle_click(ui: UiState, st, hexpos, overlay) -> None:
 # --------------------------------------------------------------------------
 # entry point
 # --------------------------------------------------------------------------
+
+
+def _guarded(name: str, fn) -> None:
+    """Render one panel; a bug in it shows an error rather than killing the app."""
+    from imgui_bundle import imgui
+
+    try:
+        fn()
+    except Exception as e:  # noqa: BLE001 - deliberately broad: keep the window alive
+        import traceback
+
+        imgui.text_colored(imgui.ImVec4(1.0, 0.4, 0.35, 1.0), f"{name}: {type(e).__name__}: {e}")
+        imgui.text_disabled(traceback.format_exc()[-1200:])
 
 
 def _runner_params(ui: UiState):
@@ -432,7 +463,8 @@ def _runner_params(ui: UiState):
 
     def _win(label, dock, fn):
         wdw = hello_imgui.DockableWindow()
-        wdw.label, wdw.dock_space_name, wdw.gui_function = label, dock, fn
+        wdw.label, wdw.dock_space_name = label, dock
+        wdw.gui_function = lambda f=fn, name=label: _guarded(name, f)
         return wdw
 
     dp = hello_imgui.DockingParams()
