@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Rulebook PDF - not redistributable, keep it out of the repo
+*.pdf
+
+# Simulation output
+/out/
+/replays/
+
+# imgui / hello_imgui layout files (in case they land in-tree)
+*.ini
+
+# Editors / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store

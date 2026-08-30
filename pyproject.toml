@@ -1,0 +1,45 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "foosim"
+version = "0.0.1"
+description = "Unofficial rules-testing sandbox and combat simulator for the tabletop game Flames of Orion"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { file = "LICENSE" }
+authors = [{ name = "jro" }]
+keywords = ["wargame", "simulation", "tabletop", "flames-of-orion", "mech"]
+dependencies = []
+
+[project.optional-dependencies]
+ui = ["imgui-bundle>=1.6.0"]
+analysis = ["numpy>=1.26", "pandas>=2.2"]
+
+[dependency-groups]
+dev = ["pytest>=8.0", "ruff>=0.6.0"]
+
+[project.scripts]
+foosim-autobattle = "foosim.sim.autobattle:main"
+foosim-analyze = "foosim.sim.analyze:main"
+foosim-gen-unit = "foosim.sim.generate:main"
+foosim-ui = "foosim.ui.app:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/foosim"]
+
+[tool.hatch.build]
+# the rulebook PDF must never be packaged
+exclude = ["*.pdf"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
