@@ -5,6 +5,13 @@ A desktop **rules-testing sandbox** for the tabletop mech skirmish game
 play a battle by hand through a hex-grid UI, or run thousands of AI-vs-AI games and
 diff the aggregates after a rule tweak.
 
+> ### Play the real game
+> *Flames of Orion* is a tabletop miniatures wargame by Stephen Hupfer. This
+> project is a fan-made lab for tinkering with its rules — it is **not** a
+> substitute for the game. If you enjoy poking at it here, buy the rulebook,
+> paint some mechs, and play it on a table:
+> **<https://underthedice.com/flamesoforion/>**
+
 **Status:** early. Design is in [`PLAN.md`](PLAN.md); the mechanics spec the engine
 follows is [`RULES.md`](RULES.md). See `PLAN.md §7` for milestones.
 
@@ -61,7 +68,7 @@ tools (`pytest`, `ruff`) are in the `dev` dependency group and install by defaul
 **Flames of Orion is © 2025 Stephen Hupfer.** This is an unofficial, fan-made
 playtesting tool. It contains **no** rulebook text, art, or layout — only a
 clean-room reimplementation of game mechanics (which are not copyrightable).
-Buy the game: <https://www.underthedice.com>
+Buy the game: <https://underthedice.com/flamesoforion/>
 
 ## License
 
