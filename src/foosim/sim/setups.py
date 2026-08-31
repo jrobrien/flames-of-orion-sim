@@ -14,6 +14,7 @@ from foosim.engine.hexgrid import Hex, from_offset_oddr
 from foosim.engine.rng import Rng
 from foosim.engine.rules import Ruleset
 from foosim.engine.state import GameState, MapSpec, TerrainHex, Unit, WeaponInstance
+from foosim.sim.build import apply_upgrades
 
 __all__ = ["mech", "scatter_terrain", "skirmish_2v2"]
 
@@ -35,7 +36,7 @@ def mech(
     f = rules.frame(frame)
     weapons = [WeaponInstance(weapon_id=w, kind="ranged") for w in ranged]
     weapons += [WeaponInstance(weapon_id=w, kind="melee") for w in melee]
-    return Unit(
+    unit = Unit(
         id=id,
         side=side,
         name=name,
@@ -50,6 +51,8 @@ def mech(
         weapons=weapons,
         upgrades=list(upgrades),
     )
+    apply_upgrades(unit, rules)
+    return unit
 
 
 def _zone_rows(cols: int, rows: range) -> tuple[Hex, ...]:

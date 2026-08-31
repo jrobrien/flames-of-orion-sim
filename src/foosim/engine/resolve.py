@@ -24,7 +24,7 @@ from foosim.engine.actions import (
     RangedAttackAction,
 )
 from foosim.engine.events import Event, emit
-from foosim.engine.legal import is_engaged
+from foosim.engine.legal import is_engaged, move_budget
 from foosim.engine.rng import Rng
 from foosim.engine.state import GameState, Unit, WeaponInstance
 from foosim.engine.visibility import VisibilityConfig, line_of_sight
@@ -102,7 +102,7 @@ def _do_move(s, a: MoveAction, rules, rng, ev) -> None:
     u = s.units[a.unit_id]
     if is_engaged(s, u):
         raise IllegalAction("engaged units must Disengage, not Move")
-    budget = u.stat("speed")
+    budget = move_budget(u)
     if a.bolster == "run":
         budget += rules.inches_to_hexes(3)
     elif a.bolster not in (None, "charge", "snap_shot"):
@@ -166,6 +166,12 @@ def _effective_to_hit(state, u, t, wspec, rules, *, kind: str, bolster: str | No
             tn += th["long_range_cs_penalty"]
         if bolster == "focused_fire":
             tn -= th["focused_cs_bonus"]
+        if "thermal_imaging" in u.upgrades:
+            ti = rules.upgrade("thermal_imaging")["effect"]
+            if t.heat >= int(ti["hot_threshold"]):
+                tn += int(ti["cs_delta_vs_hot_target"])  # -1 -> easier
+        if t.statuses.get("active_camo"):
+            tn += int(rules.upgrade("camouflage")["effect"]["enemy_ranged_cs_penalty"])
     else:  # melee
         reach = rules.inches_to_hexes(wspec.get("reach_inches", 1))
         if dist > reach:
@@ -239,14 +245,19 @@ def _do_melee(s, a: MeleeAttackAction, rules, rng, ev) -> None:
 def _resolve_attack(s, u, t, weap: WeaponInstance, wspec, rules, rng, ev, *,
                     tn: int, cover: bool, kind: str, long_range: bool) -> None:
     th = rules.to_hit
+    specials = set(wspec.get("special", []))
+    ammo_specials = (
+        set(rules.ammo_spec(weap.ammo_id).get("special", [])) if weap.ammo_id else set()
+    )
     pc = bool(t.statuses.get("position_compromised"))
     if pc:
         tn -= 1
+    crit_on = 5 if "crit_on_5plus" in specials else th["always_crit_roll"]
     roll = rng.d6()
     emit(s, ev, "dice_roll", unit=u.id, purpose="to_hit", notation="d6", results=[roll], total=roll)
     if roll == th["always_miss_roll"]:
         outcome = "miss"
-    elif roll == th["always_crit_roll"]:
+    elif roll >= crit_on:
         outcome = "crit"
     elif roll >= tn:
         outcome = "hit"
@@ -256,16 +267,31 @@ def _resolve_attack(s, u, t, weap: WeaponInstance, wspec, rules, rng, ev, *,
          effective_cs=tn, roll=roll, outcome=outcome, cover=cover, long_range=long_range,
          position_compromised=pc)
     weap.used_this_turn = True
+    if "half_speed_if_fired" in specials:
+        u.statuses["heavy_fired"] = 1
     if pc:
         t.statuses.pop("position_compromised", None)
         emit(s, ev, "status_cleared", unit=t.id, status="position_compromised")
     if outcome == "miss":
         return
 
+    if "target_heat_1d2_on_hit" in specials:  # Flame Thrower, before saves (FAQ)
+        hn = rng.roll("1d2")
+        emit(s, ev, "dice_roll", unit=u.id, purpose="flame_heat", notation="1d2",
+             results=[hn], total=hn)
+        _gain_heat(s, t, hn, "flame", ev, rng, rules)
+        if t.out_of_action:
+            return
+
     crit = outcome == "crit"
     dmg = rng.roll(str(wspec["damage"]))
     emit(s, ev, "dice_roll", unit=u.id, purpose="damage_dice", notation=str(wspec["damage"]),
          results=[dmg], total=dmg)
+    if "plus1_damage" in ammo_specials:  # Hellfire Rounds
+        dmg += 1
+    lance_charge = _lance_charge(specials, u)
+    if lance_charge:
+        dmg += 2
     if crit:
         bonus = th["crit_bonus_damage"] + (1 if "sensor_array" in u.upgrades else 0)
         dmg += bonus
@@ -287,8 +313,12 @@ def _resolve_attack(s, u, t, weap: WeaponInstance, wspec, rules, rng, ev, *,
         _explode_check(s, t, rng, rules, ev, cause="catastrophic", credited_to=u.id)
         return
 
-    _apply_damage(s, t, dmg, ap=_ap_for(weap, wspec, t, rules), cover=cover,
-                  rules=rules, rng=rng, ev=ev, source=u.id)
+    ap = _ap_for(weap, wspec, t, rules) + (1 if lance_charge else 0)
+    _apply_damage(s, t, dmg, ap=ap, cover=cover, rules=rules, rng=rng, ev=ev, source=u.id)
+
+
+def _lance_charge(specials: set, u: Unit) -> bool:
+    return "plus2_damage_and_ap_if_moved" in specials and bool(u.statuses.get("moved_this_turn"))
 
 
 def _ap_for(weap: WeaponInstance, wspec: dict, target: Unit, rules) -> int:
@@ -380,13 +410,19 @@ def plan_attack(state, attacker_id: str, target_id: str, weapon_index: int, rule
     if reason is not None:
         return _fail(reason, tn=disp_tn, cover=cover, lr=long_range, pc=pc, expr=expr)
 
+    specials = set(wspec.get("special", []))
+    ammo_specials = set(rules.ammo_spec(weap.ammo_id).get("special", [])) if weap.ammo_id else set()
+    crit_on = 5 if "crit_on_5plus" in specials else th["always_crit_roll"]
+    lance_charge = _lance_charge(specials, u)
+
     hit_p = _hit_chance(disp_tn, th)
-    crit_p = 1.0 / 6.0
+    crit_p = (7 - crit_on) / 6.0
     confirm_p = sum(1 for r in range(1, 7) if r >= u.stat("cs")) / 6.0
-    ap = _ap_for(weap, wspec, t, rules)
+    ap = _ap_for(weap, wspec, t, rules) + (1 if lance_charge else 0)
     save_tn = t.stat("ar") - (th["cover_ar_bonus"] if cover else 0) + ap  # see _apply_damage
     save_p = sum(1 for r in range(1, 7) if r >= save_tn or r == th["ar_always_saves_on"]) / 6.0
     e_base = _expected_roll(expr)
+    e_base += (1 if "plus1_damage" in ammo_specials else 0) + (2 if lance_charge else 0)
     crit_bonus = th["crit_bonus_damage"] + (1 if "sensor_array" in u.upgrades else 0)
     p_hit_noncrit = max(0.0, hit_p - crit_p)
     e_through = ((p_hit_noncrit * e_base) + (crit_p * (e_base + crit_bonus))) * (1.0 - save_p)
@@ -413,7 +449,7 @@ def _do_disengage(s, a: DisengageAction, rules, rng, ev) -> None:
         e for e in s.units.values()
         if e.side != u.side and not e.out_of_action and hexgrid.distance(e.pos, start) <= 1
     ]
-    _validate_and_move(s, u, a.path, budget=u.stat("speed") // 2, ev=ev, kind="disengage")
+    _validate_and_move(s, u, a.path, budget=move_budget(u) // 2, ev=ev, kind="disengage")
     if a.bolster == "dodge":
         return
     for e in engaged_enemies:

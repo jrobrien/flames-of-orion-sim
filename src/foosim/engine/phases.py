@@ -211,7 +211,7 @@ def _finish_activation(s, u, ev, rng, rules, died: bool = False) -> None:
     u.activated = True
     for w in u.weapons:
         w.used_this_turn = False
-    for key in ("purged_this_turn", "moved_this_turn"):
+    for key in ("purged_this_turn", "moved_this_turn", "heavy_fired"):
         u.statuses.pop(key, None)
     emit(s, ev, "activation_end", unit=u.id, died=died)
     s.activating_unit = None

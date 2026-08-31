@@ -18,7 +18,14 @@ from foosim.engine.actions import (
 from foosim.engine.hexgrid import Hex
 from foosim.engine.visibility import VisibilityConfig, line_of_sight
 
-__all__ = ["is_engaged", "legal_actions", "move_paths"]
+__all__ = ["is_engaged", "legal_actions", "move_budget", "move_paths"]
+
+
+def move_budget(unit) -> int:
+    """Hexes this unit may move this activation (before run/disengage). Halved if
+    it fired a Heavy Weapon this turn."""
+    speed = unit.stat("speed")
+    return speed // 2 if unit.statuses.get("heavy_fired") else speed
 
 
 def is_engaged(state, unit) -> bool:
@@ -101,7 +108,7 @@ def legal_actions(state, unit, rules, *, bolster: bool = True) -> list:
     u = unit
     acts: list = []
     engaged = is_engaged(state, u)
-    speed = u.stat("speed")
+    speed = move_budget(u)
     cfg = VisibilityConfig.from_rules(rules.raw)
     enemies = [t for t in state.units.values() if t.side != u.side and not t.out_of_action]
     melee_idx = _usable(u.weapons, "melee")

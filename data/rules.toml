@@ -419,7 +419,8 @@ effect = { explode_as_heat = 10 }
 id = "targeting_system"
 roll = 14
 name = "Targeting System"
-effect = { cs_delta = 1 }
+# CS numbers are the d6 target; "+1 CS" (easier) lowers it. See RULES.md sign note.
+effect = { cs_delta = -1 }
 
 [[upgrades]]
 id = "up_link"
@@ -443,7 +444,7 @@ special = ["repel_within_1in_on_4plus"]
 id = "thermal_imaging"
 roll = 18
 name = "Thermal Imaging"
-effect = { cs_delta_vs_hot_target = 1, hot_threshold = 5 }
+effect = { cs_delta_vs_hot_target = -1, hot_threshold = 5 }
 
 [[upgrades]]
 id = "counter_missiles"
@@ -472,7 +473,7 @@ effect = "disable_random_platform"
 
 [catastrophic."4"]
 name = "Targeting System Disrupted"
-effect = "cs_delta:-1"
+effect = "cs_delta:1"
 
 [catastrophic."5"]
 name = "Cracked Reactor Core"

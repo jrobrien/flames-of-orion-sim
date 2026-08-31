@@ -71,7 +71,7 @@ def compute_overlay(
     u = state.units[unit_id]
 
     if mode == "targeting_move":
-        budget = u.stat("speed") + (rules.inches_to_hexes(3) if sub == "run" else 0)
+        budget = legal.move_budget(u) + (rules.inches_to_hexes(3) if sub == "run" else 0)
         reach = legal.move_paths(state, u, budget=budget)
         if sub == "charge":
             has_melee = any(
@@ -89,7 +89,7 @@ def compute_overlay(
         return Overlay(mode, reachable=reach)
 
     if mode == "targeting_disengage":
-        return Overlay(mode, reachable=legal.move_paths(state, u, budget=u.stat("speed") // 2))
+        return Overlay(mode, reachable=legal.move_paths(state, u, budget=legal.move_budget(u) // 2))
 
     # attack modes
     enemies = _enemies(state, u)
