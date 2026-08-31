@@ -108,6 +108,19 @@ def test_out_of_range_and_no_los_raise():
         resolve.apply(gs, RangedAttackAction("A", "B", 0), RULES)
 
 
+def test_snap_shot_moves_then_fires_at_minus_one_cs():
+    gs = duel(RULES, a_pos=Hex(0, 0), b_pos=Hex(0, 8),
+              rng_state=rng_state_for_rolls([5, 1, 1]), b_over={"ar": 7})
+    path = [Hex(0, i) for i in range(4)]  # move 3 toward B
+    s, ev = resolve.apply(gs, MoveAction("A", path, bolster="snap_shot", shot_target="B"), RULES)
+    kinds = [e.kind for e in ev]
+    assert kinds[:2] == ["move", "snap_shot"]
+    atk = last(ev, "attack")
+    assert atk.data["effective_cs"] == gs.units["A"].cs + 1  # -1 CS = harder
+    assert s.units["A"].pos == Hex(0, 3)  # finished the move
+    assert s.units["A"].weapons[0].used_this_turn
+
+
 # -- heat / explode ------------------------------------------------------
 
 

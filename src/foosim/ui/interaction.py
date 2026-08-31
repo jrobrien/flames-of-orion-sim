@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 
 from foosim.engine import hexgrid, legal, resolve
 from foosim.engine.hexgrid import Hex
+from foosim.engine.visibility import VisibilityConfig, line_of_sight
 
 __all__ = ["MODES", "SUBMODES", "SUBMODE_LABELS", "Overlay", "compute_overlay"]
 
@@ -22,9 +23,9 @@ MODES = (
     "targeting_melee",
 )
 
-# "" == standard (no bolster). snap_shot is omitted (engine stub).
+# "" == standard (no bolster).
 SUBMODES: dict[str, tuple[str, ...]] = {
-    "targeting_move": ("", "run", "charge"),
+    "targeting_move": ("", "run", "charge", "snap_shot"),
     "targeting_disengage": ("", "dodge"),
     "targeting_ranged": ("", "focused_fire", "unleash_hell"),
     "targeting_melee": ("", "focused_strike", "fury", "ram"),
@@ -34,6 +35,7 @@ SUBMODE_LABELS = {
     "": "standard",
     "run": 'run (+3")',
     "charge": "charge (-> free melee)",
+    "snap_shot": "snap shot (move + shoot at -1 CS)",
     "dodge": "dodge (no free hit)",
     "focused_fire": "focused fire (+1 CS)",
     "unleash_hell": "unleash hell (all ranged)",
@@ -48,7 +50,8 @@ class Overlay:
     mode: str
     reachable: dict[Hex, list[Hex]] = field(default_factory=dict)  # dest -> path
     targets: set[str] = field(default_factory=set)  # unit ids
-    charge_targets: dict[Hex, str] = field(default_factory=dict)  # dest -> enemy id (charge only)
+    charge_targets: dict[Hex, str] = field(default_factory=dict)  # dest -> enemy id (charge)
+    snap_targets: dict[Hex, str] = field(default_factory=dict)  # dest -> enemy id (snap shot)
 
     def is_valid_dest(self, h: Hex) -> bool:
         return h in self.reachable
@@ -73,6 +76,18 @@ def compute_overlay(
     if mode == "targeting_move":
         budget = legal.move_budget(u) + (rules.inches_to_hexes(3) if sub == "run" else 0)
         reach = legal.move_paths(state, u, budget=budget)
+        if sub == "snap_shot":
+            cfg = VisibilityConfig.from_rules(rules.raw)
+            snap: dict[Hex, str] = {}
+            for dest in reach:
+                best, best_d = None, 1 << 30
+                for e in _enemies(state, u):
+                    d = hexgrid.distance(dest, e.pos)
+                    if d < best_d and line_of_sight(state, dest, e.pos, cfg).los:
+                        best, best_d = e.id, d
+                if best is not None:
+                    snap[dest] = best
+            return Overlay(mode, reachable=reach, snap_targets=snap)
         if sub == "charge":
             has_melee = any(
                 w.kind == "melee" and not w.used_this_turn and not w.disabled for w in u.weapons

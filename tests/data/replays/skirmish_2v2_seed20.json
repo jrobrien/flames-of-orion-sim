@@ -43,6 +43,9 @@
           10
         ]
       ],
+      "shot_at": -1,
+      "shot_target": null,
+      "shot_weapon_index": null,
       "unit_id": "B2"
     },
     {
@@ -91,6 +94,9 @@
           1
         ]
       ],
+      "shot_at": -1,
+      "shot_target": null,
+      "shot_weapon_index": null,
       "unit_id": "A2"
     },
     {
@@ -120,6 +126,9 @@
           4
         ]
       ],
+      "shot_at": -1,
+      "shot_target": null,
+      "shot_weapon_index": null,
       "unit_id": "A2"
     },
     {
@@ -157,6 +166,9 @@
           5
         ]
       ],
+      "shot_at": -1,
+      "shot_target": null,
+      "shot_weapon_index": null,
       "unit_id": "B1"
     },
     {
@@ -194,6 +206,9 @@
           11
         ]
       ],
+      "shot_at": -1,
+      "shot_target": null,
+      "shot_weapon_index": null,
       "unit_id": "B1"
     },
     {
@@ -243,6 +258,9 @@
           9
         ]
       ],
+      "shot_at": -1,
+      "shot_target": null,
+      "shot_weapon_index": null,
       "unit_id": "A1"
     },
     {
@@ -291,6 +309,9 @@
           11
         ]
       ],
+      "shot_at": -1,
+      "shot_target": null,
+      "shot_weapon_index": null,
       "unit_id": "B2"
     },
     {
@@ -323,6 +344,9 @@
           7
         ]
       ],
+      "shot_at": -1,
+      "shot_target": null,
+      "shot_weapon_index": null,
       "unit_id": "A2"
     },
     {
@@ -371,6 +395,9 @@
           4
         ]
       ],
+      "shot_at": -1,
+      "shot_target": null,
+      "shot_weapon_index": null,
       "unit_id": "B1"
     },
     {
@@ -400,6 +427,9 @@
           1
         ]
       ],
+      "shot_at": -1,
+      "shot_target": null,
+      "shot_weapon_index": null,
       "unit_id": "B1"
     },
     {
@@ -444,6 +474,9 @@
           8
         ]
       ],
+      "shot_at": -1,
+      "shot_target": null,
+      "shot_weapon_index": null,
       "unit_id": "A1"
     },
     {
@@ -473,6 +506,9 @@
           0
         ]
       ],
+      "shot_at": -1,
+      "shot_target": null,
+      "shot_weapon_index": null,
       "unit_id": "B1"
     },
     {
@@ -498,6 +534,9 @@
           1
         ]
       ],
+      "shot_at": -1,
+      "shot_target": null,
+      "shot_weapon_index": null,
       "unit_id": "B1"
     },
     {
@@ -539,6 +578,9 @@
           6
         ]
       ],
+      "shot_at": -1,
+      "shot_target": null,
+      "shot_weapon_index": null,
       "unit_id": "A1"
     },
     {
@@ -568,6 +610,9 @@
           9
         ]
       ],
+      "shot_at": -1,
+      "shot_target": null,
+      "shot_weapon_index": null,
       "unit_id": "A1"
     },
     {
@@ -617,6 +662,9 @@
           10
         ]
       ],
+      "shot_at": -1,
+      "shot_target": null,
+      "shot_weapon_index": null,
       "unit_id": "B2"
     },
     {
@@ -669,6 +717,9 @@
           7
         ]
       ],
+      "shot_at": -1,
+      "shot_target": null,
+      "shot_weapon_index": null,
       "unit_id": "A2"
     },
     {
@@ -718,6 +769,9 @@
           10
         ]
       ],
+      "shot_at": -1,
+      "shot_target": null,
+      "shot_weapon_index": null,
       "unit_id": "A2"
     }
   ],

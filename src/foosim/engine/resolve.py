@@ -114,6 +114,36 @@ def _do_move(s, a: MoveAction, rules, rng, ev) -> None:
             mi = next((j for j, w in enumerate(u.weapons) if w.kind == "melee"), None)
         if mi is not None:
             _do_melee(s, MeleeAttackAction(u.id, a.melee_target, mi), rules, rng, ev)
+    elif a.bolster == "snap_shot" and a.shot_target is not None:
+        _snap_shot(s, u, a, rules, rng, ev)
+
+
+def _snap_shot(s, u, a: MoveAction, rules, rng, ev) -> None:
+    t = s.units.get(a.shot_target)
+    if t is None or t.out_of_action:
+        return
+    wi = a.shot_weapon_index
+    if wi is None:
+        wi = next(
+            (j for j, w in enumerate(u.weapons)
+             if w.kind == "ranged" and not w.used_this_turn and not w.disabled),
+            None,
+        )
+    if wi is None:
+        return
+    shot_at = a.shot_at if 0 <= a.shot_at < len(a.path) else len(a.path) - 1
+    dest = u.pos
+    u.pos = a.path[shot_at]  # fire from the pause point
+    w = u.weapons[wi]
+    wspec = rules.weapon(w.weapon_id)
+    tn, cover, long_range, reason = _effective_to_hit(
+        s, u, t, wspec, rules, kind="ranged", bolster="snap_shot"
+    )
+    emit(s, ev, "snap_shot", unit=u.id, target=t.id, from_hex=[u.pos.q, u.pos.r])
+    if reason is None:
+        _resolve_attack(s, u, t, w, wspec, rules, rng, ev, tn=tn, cover=cover, kind="ranged",
+                        long_range=long_range)
+    u.pos = dest  # complete the movement
 
 
 # --------------------------------------------------------------------------
@@ -140,11 +170,27 @@ def _indices_for(u, a, kind: str, all_flag: bool) -> list[int]:
     return [i]
 
 
-def _effective_to_hit(state, u, t, wspec, rules, *, kind: str, bolster: str | None):
+_VIS_CFG: dict[str, VisibilityConfig] = {}
+
+
+def _vis_cfg(rules) -> VisibilityConfig:
+    key = rules.content_hash
+    cfg = _VIS_CFG.get(key)
+    if cfg is None:
+        cfg = VisibilityConfig.from_rules(rules.raw)
+        _VIS_CFG[key] = cfg
+    return cfg
+
+
+def _effective_to_hit(state, u, t, wspec, rules, *, kind: str, bolster: str | None,
+                      los_cache: dict | None = None):
     """The to-hit target number (before Position Compromised, which is consumed in
     ``_resolve_attack``), plus cover / long-range flags. Returns
     ``(tn, cover, long_range, reason)`` where ``reason`` is a string if the attack
-    is geometrically illegal. Shared by the resolver and :func:`plan_attack`."""
+    is geometrically illegal. Shared by the resolver and :func:`plan_attack`.
+
+    ``los_cache`` (optional ``dict`` keyed by ``(from_hex, to_hex)``) lets a caller
+    that evaluates many variants of the same shot skip re-tracing LOS."""
     th = rules.to_hit
     specials = set(wspec.get("special", []))
     tn = u.stat("cs")
@@ -154,7 +200,12 @@ def _effective_to_hit(state, u, t, wspec, rules, *, kind: str, bolster: str | No
         mr = wspec.get("max_range_inches")
         if mr is not None and dist > rules.inches_to_hexes(mr):
             return tn, cover, long_range, "target out of weapon range"
-        los = line_of_sight(state, u.pos, t.pos, VisibilityConfig.from_rules(rules.raw))
+        if los_cache is not None and (u.pos, t.pos) in los_cache:
+            los = los_cache[(u.pos, t.pos)]
+        else:
+            los = line_of_sight(state, u.pos, t.pos, _vis_cfg(rules))
+            if los_cache is not None:
+                los_cache[(u.pos, t.pos)] = los
         if "ignores_los" not in specials and not los.los:
             return tn, cover, long_range, "no line of sight to target"
         cover = bool(los.cover) and "ignores_cover" not in specials
@@ -166,6 +217,8 @@ def _effective_to_hit(state, u, t, wspec, rules, *, kind: str, bolster: str | No
             tn += th["long_range_cs_penalty"]
         if bolster == "focused_fire":
             tn -= th["focused_cs_bonus"]
+        elif bolster == "snap_shot":
+            tn += th["snap_shot_cs_penalty"]
         if "thermal_imaging" in u.upgrades:
             ti = rules.upgrade("thermal_imaging")["effect"]
             if t.heat >= int(ti["hot_threshold"]):
@@ -371,10 +424,12 @@ def _hit_chance(tn: int, th: dict) -> float:
     return sum(1 for r in range(1, 7) if r == crit or (r != miss and r >= tn)) / 6.0
 
 
-def plan_attack(state, attacker_id: str, target_id: str, weapon_index: int, rules,
-                *, kind: str, bolster: str | None = None) -> AttackPlan:
+def plan_attack(state, attacker_id: str, target_id: str, weapon_index: int, rules, *,
+                kind: str, bolster: str | None = None,
+                los_cache: dict | None = None) -> AttackPlan:
     """What a Ranged/Melee attack would look like, without rolling. Uses the same
-    modifier logic as the resolver (:func:`_effective_to_hit`, :func:`_ap_for`)."""
+    modifier logic as the resolver (:func:`_effective_to_hit`, :func:`_ap_for`).
+    Pass a shared ``los_cache`` dict when scoring many variants of one shot."""
     th = rules.to_hit
     u = state.units[attacker_id]
     t = state.units.get(target_id)
@@ -403,7 +458,7 @@ def plan_attack(state, attacker_id: str, target_id: str, weapon_index: int, rule
         return _fail("attacker is engaged", expr=expr)
 
     tn, cover, long_range, reason = _effective_to_hit(
-        state, u, t, wspec, rules, kind=kind, bolster=bolster
+        state, u, t, wspec, rules, kind=kind, bolster=bolster, los_cache=los_cache
     )
     pc = bool(t.statuses.get("position_compromised"))
     disp_tn = tn - (1 if pc else 0)

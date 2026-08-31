@@ -359,7 +359,13 @@ def _preview(ui: UiState, sess, u, resolve) -> None:
         path = ov.reachable.get(h)
         if path:
             heat = (1 if sess.live.actions_taken >= 1 else 0) + (1 if bolstered else 0)
-            extra = f"  -> free melee vs {ov.charge_targets[h]}" if h in ov.charge_targets else ""
+            extra = ""
+            if h in ov.charge_targets:
+                extra = f"  -> free melee vs {ov.charge_targets[h]}"
+            elif h in ov.snap_targets:
+                extra = f"  -> snap shot vs {ov.snap_targets[h]} (-1 CS)"
+            elif ui.submode == "snap_shot":
+                extra = "  (no target in LOS from here)"
             imgui.text(f"move cost {len(path) - 1}   heat +{heat}{extra}")
         else:
             imgui.text_disabled("not reachable")
@@ -459,6 +465,9 @@ def _handle_click(ui: UiState, st, hexpos, overlay) -> None:
                 decision = MoveAction(u.id, overlay.reachable[hexpos], bolster="charge",
                                       melee_target=overlay.charge_targets[hexpos],
                                       melee_weapon_index=_first_melee(u))
+            elif ui.submode == "snap_shot":
+                decision = MoveAction(u.id, overlay.reachable[hexpos], bolster="snap_shot",
+                                      shot_target=overlay.snap_targets.get(hexpos))
             else:
                 decision = MoveAction(u.id, overlay.reachable[hexpos], bolster=sub)
         elif ui.action_mode == "targeting_disengage" and hexpos in overlay.reachable:

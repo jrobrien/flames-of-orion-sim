@@ -26,7 +26,6 @@ that ignore LOS or cover just discard the relevant field.
 
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass, field
 from typing import Protocol
 
@@ -42,7 +41,6 @@ __all__ = [
     "line_of_sight",
 ]
 
-_SEGMENT_STEP = 0.1  # hex units between samples when walking a continuous ray
 
 
 @dataclass(frozen=True)
@@ -146,14 +144,23 @@ def _sample_points(h: Hex, frac: float) -> list[tuple[float, float]]:
     return pts
 
 
+_SUB = 4  # samples per hex of separation - dense enough not to skip a single hex
+
+
 def _hexes_on_segment(p: tuple[float, float], q: tuple[float, float]) -> list[Hex]:
-    length = math.hypot(q[0] - p[0], q[1] - p[1])
-    steps = max(2, int(length / _SEGMENT_STEP) + 1)
+    """Hexes a pixel-space segment passes through, via axial cube interpolation
+    (O(hex distance) rounds instead of a fine pixel walk)."""
+    aq, ar = hexgrid.from_pixel_frac(p[0], p[1], 1.0)
+    bq, br = hexgrid.from_pixel_frac(q[0], q[1], 1.0)
+    hexdist = (abs(aq - bq) + abs(aq + ar - bq - br) + abs(ar - br)) / 2.0
+    steps = max(2, int(hexdist * _SUB) + 1)
     out: list[Hex] = []
     prev: Hex | None = None
+    inv = 1.0 / steps
+    dq, dr = bq - aq, br - ar
     for i in range(steps + 1):
-        t = i / steps
-        h = hexgrid.from_pixel(p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t, 1.0)
+        t = i * inv
+        h = hexgrid.hex_round(aq + dq * t, ar + dr * t)
         if h != prev:
             out.append(h)
             prev = h

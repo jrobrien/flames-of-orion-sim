@@ -21,6 +21,7 @@ __all__ = [
     "distance",
     "from_offset_oddr",
     "from_pixel",
+    "from_pixel_frac",
     "hex_round",
     "line",
     "line_variants",
@@ -195,9 +196,13 @@ def to_pixel(h: Hex, size: float = 1.0) -> tuple[float, float]:
     return (x, y)
 
 
+def from_pixel_frac(x: float, y: float, size: float = 1.0) -> tuple[float, float]:
+    """Pixel -> fractional axial (q, r), no rounding."""
+    return ((_SQRT3 / 3.0 * x - 1.0 / 3.0 * y) / size, (2.0 / 3.0 * y) / size)
+
+
 def from_pixel(x: float, y: float, size: float = 1.0) -> Hex:
-    q = (_SQRT3 / 3.0 * x - 1.0 / 3.0 * y) / size
-    r = (2.0 / 3.0 * y) / size
+    q, r = from_pixel_frac(x, y, size)
     return hex_round(q, r)
 
 

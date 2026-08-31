@@ -41,6 +41,9 @@ class MoveAction:
     bolster: str | None = None  # "charge" | "run" | "snap_shot"
     melee_target: str | None = None  # charge
     melee_weapon_index: int | None = None  # charge
+    shot_target: str | None = None  # snap_shot
+    shot_weapon_index: int | None = None  # snap_shot
+    shot_at: int = -1  # snap_shot: path index to fire from; -1 = from the destination
 
 
 @dataclass
