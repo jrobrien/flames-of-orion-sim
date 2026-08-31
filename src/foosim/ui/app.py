@@ -255,8 +255,7 @@ def _log(ui: UiState) -> None:
     _, ui.log_filter = imgui.input_text("filter", ui.log_filter)
     imgui.same_line()
     _, ui.follow_log = imgui.checkbox("follow", ui.follow_log)
-    render.draw_event_log(ui.driver._frames, ui.driver.cursor, ui.log_filter,
-                          ui.follow_log and ui.playing)
+    render.draw_event_log(ui.driver._frames, ui.driver.cursor, ui.log_filter, ui.follow_log)
 
 
 def _actions(ui: UiState) -> None:
