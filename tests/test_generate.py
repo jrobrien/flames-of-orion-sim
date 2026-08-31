@@ -1,4 +1,11 @@
 from foosim.ai.policy import RandomPolicy
+from foosim.engine.effects import (
+    DEFERRED_SPECIALS,
+    DEFERRED_UPGRADE_EFFECTS,
+    ammo_supported,
+    upgrade_supported,
+    weapon_supported,
+)
 from foosim.engine.rng import Rng
 from foosim.engine.rules import load
 from foosim.sim.autobattle import run_game
@@ -10,6 +17,15 @@ from foosim.sim.generate import (
 )
 
 RULES = load()
+
+
+def _has_deferred_gear(unit) -> bool:
+    for w in unit.weapons:
+        if not weapon_supported(RULES.weapon(w.weapon_id)):
+            return True
+        if w.ammo_id and not ammo_supported(RULES.ammo_spec(w.ammo_id)):
+            return True
+    return any(not upgrade_supported(RULES.upgrade(uid)) for uid in unit.upgrades)
 
 
 def _pf_used(unit, rules):
@@ -48,6 +64,37 @@ def test_upgrades_are_baked_into_stats():
             assert u.speed == base + u.upgrades.count("thrusters")
             return
     raise AssertionError("no seed produced a stat-baking upgrade in 200 tries")
+
+
+def test_default_generation_never_carries_unimplemented_gear():
+    for seed in range(120):
+        u = generate_mech(RULES, Rng.from_seed(seed), id="M", side=0)  # supported_only default
+        assert not _has_deferred_gear(u), (seed, [w.weapon_id for w in u.weapons], u.upgrades)
+
+
+def test_full_mode_can_use_the_whole_table():
+    seen_deferred = False
+    for seed in range(120):
+        u = generate_mech(RULES, Rng.from_seed(seed), id="M", side=0, supported_only=False)
+        if _has_deferred_gear(u):
+            seen_deferred = True
+            break
+    assert seen_deferred, "supported_only=False should eventually roll deferred gear"
+
+
+def test_random_setup_default_is_all_supported():
+    for seed in range(15):
+        gs = random_setup(RULES, seed=seed)
+        assert all(not _has_deferred_gear(u) for u in gs.units.values())
+
+
+def test_effects_classification_covers_generated_content():
+    # sanity: the frozensets aren't empty / mislabelled
+    assert DEFERRED_SPECIALS and DEFERRED_UPGRADE_EFFECTS
+    assert weapon_supported(RULES.weapon("medium_weapon"))
+    assert not weapon_supported(RULES.weapon("rail_weapon"))
+    assert upgrade_supported(RULES.upgrade("thrusters"))
+    assert not upgrade_supported(RULES.upgrade("virus_program"))
 
 
 def test_call_sign_shape():

@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 
+from foosim.engine.effects import ammo_supported, upgrade_supported, weapon_supported
 from foosim.engine.hexgrid import Hex, from_offset_oddr
 from foosim.engine.rng import Rng
 from foosim.engine.rules import Ruleset
@@ -47,7 +48,12 @@ def generate_mech(
     side: int,
     pos: Hex | None = None,
     ammo_chance: float = 0.4,
+    supported_only: bool = True,
 ) -> Unit:
+    """Roll a mech from the Black Market tables. With ``supported_only`` (default)
+    a rolled weapon/upgrade/ammo whose ``special`` behaviour is not implemented
+    yet (see ``engine.effects``) is skipped and re-rolled, so random mechs never
+    carry inert gear."""
     _index(rules)
     frame = rules.frame_for_roll(rng.d6())
     f = rules.frame(frame)
@@ -56,16 +62,15 @@ def generate_mech(
     weapons: list[WeaponInstance] = []
     upgrades: list[str] = []
     guard = 0
-    while slots > 0 and guard < 40:
+    while slots > 0 and guard < 80:
         guard += 1
         if rng.d6() <= 4:  # weapon
-            if rng.d6() <= 3:
-                wid = _RANGED_BY_ROLL[rng.die(8)]
-                kind = "ranged"
-            else:
-                wid = _MELEE_BY_ROLL[rng.die(8)]
-                kind = "melee"
-            cost = int(rules.weapon(wid).get("platform_slots", 1))
+            kind = "ranged" if rng.d6() <= 3 else "melee"
+            wid = (_RANGED_BY_ROLL if kind == "ranged" else _MELEE_BY_ROLL)[rng.die(8)]
+            wspec = rules.weapon(wid)
+            if supported_only and not weapon_supported(wspec):
+                continue
+            cost = int(wspec.get("platform_slots", 1))
             if cost > slots:
                 continue
             slots -= cost
@@ -74,20 +79,22 @@ def generate_mech(
             up = rules.raw["upgrades"][rng.randint(0, len(rules.raw["upgrades"]) - 1)]
             if not up.get("stackable") and up["id"] in upgrades:
                 continue
+            if supported_only and not upgrade_supported(up):
+                continue
             upgrades.append(up["id"])
             slots -= 1
             if up.get("effect", {}).get("free_slot"):
                 slots += 1  # Extra Platforms does not consume a slot
 
     # ammo on some ranged weapons (Flame Thrower takes none)
-    ammo_ids = [a["id"] for a in rules.raw["ammo"]]
+    ammo = [a for a in rules.raw["ammo"] if not supported_only or ammo_supported(a)]
     for w in weapons:
-        if w.kind != "ranged":
+        if w.kind != "ranged" or not ammo:
             continue
         if "no_specialty_ammo" in set(rules.weapon(w.weapon_id).get("special", [])):
             continue
         if rng.random() < ammo_chance:
-            w.ammo_id = ammo_ids[rng.randint(0, len(ammo_ids) - 1)]
+            w.ammo_id = ammo[rng.randint(0, len(ammo) - 1)]["id"]
 
     unit = Unit(
         id=id,
@@ -109,12 +116,18 @@ def generate_mech(
 
 
 def generate_combat_unit(
-    rules: Ruleset, rng: Rng, side: int, *, n: int = 4, id_prefix: str = "U"
+    rules: Ruleset, rng: Rng, side: int, *, n: int = 4, id_prefix: str = "U",
+    supported_only: bool = True,
 ) -> list[Unit]:
-    return [generate_mech(rules, rng, id=f"{id_prefix}{i + 1}", side=side) for i in range(n)]
+    return [
+        generate_mech(rules, rng, id=f"{id_prefix}{i + 1}", side=side,
+                      supported_only=supported_only)
+        for i in range(n)
+    ]
 
 
-def random_setup(rules: Ruleset, *, seed: int, n: int = 2) -> GameState:
+def random_setup(rules: Ruleset, *, seed: int, n: int = 2,
+                 supported_only: bool = True) -> GameState:
     rng = Rng.from_seed(seed ^ 0x6E_4E_5A)
     cols, rows = 16, 12
     mapspec = MapSpec(
@@ -127,7 +140,8 @@ def random_setup(rules: Ruleset, *, seed: int, n: int = 2) -> GameState:
     units: dict[str, Unit] = {}
     for side in (0, 1):
         row = 1 if side == 0 else rows - 2
-        squad = generate_combat_unit(rules, rng, side, n=n, id_prefix="AB"[side])
+        squad = generate_combat_unit(rules, rng, side, n=n, id_prefix="AB"[side],
+                                     supported_only=supported_only)
         cols_used = list(range(2, 2 + 3 * n, 3))
         for u, col in zip(squad, cols_used, strict=True):
             u.pos = from_offset_oddr(col, row)
@@ -160,11 +174,14 @@ def main(argv: list[str] | None = None) -> None:
     ap = argparse.ArgumentParser(description="Generate random Flames of Orion mechs")
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--count", type=int, default=4)
+    ap.add_argument("--full", action="store_true",
+                    help="use the whole Black Market table, incl. not-yet-implemented gear")
     args = ap.parse_args(argv)
     rules = load_rules()
     rng = Rng.from_seed(args.seed)
     for i in range(args.count):
-        print(_stat_block(generate_mech(rules, rng, id=f"M{i + 1}", side=0)))
+        u = generate_mech(rules, rng, id=f"M{i + 1}", side=0, supported_only=not args.full)
+        print(_stat_block(u))
         print()
 
 

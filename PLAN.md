@@ -402,6 +402,12 @@ seeded + never on deploy zones. **Not verified:** the imgui window itself — ru
   d20 upgrades, PF cost honoured incl. Heavy Weapon 2 / Extra Platforms +1,
   ammo on some ranged, d66 call sign), `generate_combat_unit`, `random_setup`.
   `foosim-gen-unit` CLI; `foosim-autobattle --random`.
+- `engine/effects.py` — the single source of truth for what's implemented
+  (`HANDLED_*` / `DEFERRED_*` sets + `weapon/ammo/upgrade_supported()`). Consumed
+  by `test_content_coverage` **and** the generator: `supported_only=True`
+  (default) skips + re-rolls any gear whose `special` behaviour is a M7c stub,
+  so random mechs never carry inert equipment. `--full` opts into the whole
+  table.
 
 **M7c ✅ (partial) — GreedyPolicy + snap_shot + LOS perf**
 - `ai/policy.GreedyPolicy` — score every legal option via `plan_attack`
