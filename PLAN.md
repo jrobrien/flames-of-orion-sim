@@ -445,12 +445,38 @@ Cross-cutting: **ammo depletion** (end-of-game d6 per ammo, deplete on 1–3),
 partially in the model, not wired to resolution), and **Pilot Eject / Scrappers /
 Modded Frames / Experience** optional rules (out of scope for battle testing).
 
-### M8 — Missions + analysis dashboard
-`sim/missions.py` pluggable objectives (all 6 + special objectives as optional
-secret goals). `sim/analyze.py` `run_many` + `diff` + CSV; `--override`. In-app
-`ui/analysiswin.py` ImPlot dashboard.
-**Done when:** `foosim-analyze` runs 2000 games, writes CSV, prints a summary;
-`--override to_hit.long_range_inches=8` visibly shifts the aggregate.
+### M8 — Missions + analysis harness
+
+**M8a ✅ — analysis harness**
+- `sim/analyze.py` (stdlib only): `GameRow` (per-game tallies from the event
+  stream), `run_many(make_setup, make_policies, rules, n, seed0)`, `summarize`
+  (win rates, decisive/annihilation rate, mean rounds/steps/survivors/damage/
+  crits/catastrophics/explosions/heat-deaths), `diff(base, variant)`,
+  `write_csv`/`read_csv`, `parse_override`.
+- `foosim-analyze` CLI: `--games --seed --setup skirmish|random
+  --matchup <p0>-vs-<p1> --override PATH=VALUE (repeatable) --out CSV
+  --baseline CSV`. Prints the summary; with `--baseline` prints the diff.
+- Wired the previously-hardcoded activation HEAT to `rules.heat` so
+  `--override heat.second_action=N` actually bites. Verified:
+  `heat.second_action=2` takes mean heat-deaths 0.02 → 0.32 and lifts
+  explosions / annihilation rate.
+
+**M8b ✅ — mission registry**
+- `engine/missions.py`: `resolve_winner(state, rules) -> (winner, reason)` with a
+  `register(name)` table. `phases._check_victory` delegates to it. Stateless
+  missions wired: `warzone` (most models at the round limit), `last_standing`
+  (Noble Fight), `annihilation` (round limit = draw). Unknown name → `warzone`.
+- **Not implemented** (need `GameState` fields that don't exist): Recovery
+  (Cargo token), Scavenge / Burned to a Crisp (Loot Tokens, Shelters), Hold the
+  Line (Drop Ship marker), and the secret Special Objectives.
+
+**M8c — deferred to polish:** in-UI analysis panel (needs the
+`immapp.run` + ImPlot switch; the CLI + CSV is the real workflow). A text-only
+summary panel would be a cheap interim.
+
+**Done when (met):** `foosim-analyze --games N` writes CSV + prints a summary;
+`--override` visibly shifts the aggregate; mission victory goes through the
+registry.
 
 ### M9 — Polish + portability
 `docs/porting-to-godot.md` (state schema, effect-registry inventory, pure-vs-Python

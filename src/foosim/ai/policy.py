@@ -131,8 +131,9 @@ class GreedyPolicy(Policy):
     # -- scoring ---------------------------------------------------
     def _score(self, state, u, a, los_cache: dict | None = None) -> float:
         pen = self._heat_penalty(u)
-        heat_cost = 1 if state.actions_taken >= 1 else 0
-        heat_cost += 1 if getattr(a, "bolster", None) else 0
+        hr = self.rules.heat
+        heat_cost = hr["second_action"] if state.actions_taken >= 1 else 0
+        heat_cost += hr["per_bolstered_action"] if getattr(a, "bolster", None) else 0
 
         if isinstance(a, (RangedAttackAction, MeleeAttackAction)):
             return self._score_attack(state, u, a, pen, heat_cost, los_cache)

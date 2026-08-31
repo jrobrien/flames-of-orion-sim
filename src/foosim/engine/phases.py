@@ -12,7 +12,7 @@ the next decision, or ``None`` when the next ``step`` is automatic.
 
 from __future__ import annotations
 
-from foosim.engine import resolve
+from foosim.engine import missions, resolve
 from foosim.engine.actions import ActivateUnit, EndActivation, IllegalAction, Pass, is_action
 from foosim.engine.events import Event, emit
 from foosim.engine.rng import Rng
@@ -204,8 +204,10 @@ def _start_unit_activation(s, decision, side, ev, rng, rules) -> None:
 
 def _finish_activation(s, u, ev, rng, rules, died: bool = False) -> None:
     if not died:
-        heat = (1 if s.actions_taken >= rules.game["actions_per_activation"] else 0)
-        heat += s.bolstered_count
+        hr = rules.heat
+        second = s.actions_taken >= rules.game["actions_per_activation"]
+        heat = hr["second_action"] if second else 0
+        heat += s.bolstered_count * hr["per_bolstered_action"]
         if heat > 0:
             resolve._gain_heat(s, u, heat, "activation", ev, rng, rules)
     u.activated = True
@@ -263,19 +265,11 @@ def _run_heat_phase(s, ev, rng, rules) -> None:
 def _check_victory(s, ev, rules) -> None:
     if s.winner is not None:
         return
-    live = {sd: len(s.live_units(sd)) for sd in s.sides()}
-    alive = [sd for sd, n in live.items() if n > 0]
-    if len(alive) <= 1:
-        _finish_game(s, ev, alive[0] if alive else -1, "annihilation", live)
+    winner, reason = missions.resolve_winner(s, rules)
+    if reason is None:
         return
-    if s.round > rules.game["rounds"]:
-        if s.mission == "warzone":
-            best = max(live.values())
-            top = [sd for sd, n in live.items() if n == best]
-            winner = top[0] if len(top) == 1 else -1
-        else:
-            winner = -1
-        _finish_game(s, ev, winner, "round_limit", live)
+    live = {sd: len(s.live_units(sd)) for sd in s.sides()}
+    _finish_game(s, ev, winner, reason, live)
 
 
 def _finish_game(s, ev, winner, reason, live) -> None:

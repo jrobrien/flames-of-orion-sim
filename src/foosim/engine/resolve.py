@@ -433,8 +433,9 @@ def plan_attack(state, attacker_id: str, target_id: str, weapon_index: int, rule
     th = rules.to_hit
     u = state.units[attacker_id]
     t = state.units.get(target_id)
-    heat_cost = (1 if state.actions_taken >= 1 else 0)
-    heat_cost += 1 if (bolster and bolster != "reboot") else 0
+    hr = rules.heat
+    heat_cost = hr["second_action"] if state.actions_taken >= 1 else 0
+    heat_cost += hr["per_bolstered_action"] if (bolster and bolster != "reboot") else 0
 
     def _fail(reason: str, tn: int = 0, cover: bool = False, lr: bool = False,
               pc: bool = False, expr: str = "0") -> AttackPlan:
