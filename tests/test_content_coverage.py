@@ -54,8 +54,8 @@ HANDLED_UPGRADE_EFFECTS = {
     "cs_delta_vs_hot_target", "hot_threshold",  # resolve: thermal_imaging
     "enemy_ranged_cs_penalty",               # resolve: active_camo status
 }
+HANDLED_UPGRADE_EFFECTS |= {"free_slot"}  # generate.py PF accounting (Extra Platforms)
 DEFERRED_UPGRADE_EFFECTS = {
-    "free_slot",                     # generator PF accounting
     "negate_ranged_crit_bonus_damage",  # counter_missiles
 }
 

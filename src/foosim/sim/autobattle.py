@@ -64,14 +64,16 @@ def run_game(
 def main(argv: list[str] | None = None) -> None:
     from foosim.ai.policy import RandomPolicy
     from foosim.engine.rules import load
+    from foosim.sim.generate import random_setup
     from foosim.sim.setups import skirmish_2v2
 
     ap = argparse.ArgumentParser(description="Headless Flames of Orion auto-battle")
     ap.add_argument("--seed", type=int, default=1)
+    ap.add_argument("--random", action="store_true", help="randomly generated combat units")
     args = ap.parse_args(argv)
 
     rules = load()
-    gs = skirmish_2v2(rules, seed=args.seed)
+    gs = random_setup(rules, seed=args.seed) if args.random else skirmish_2v2(rules, seed=args.seed)
     pols = {
         0: RandomPolicy(rules, seed=args.seed * 2 + 1),
         1: RandomPolicy(rules, seed=args.seed * 2 + 2),
