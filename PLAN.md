@@ -365,9 +365,20 @@ the `ui` extra; risky imgui-bundle API points checked by introspection.
 rewind/scrub semantics; overlay legality matches `plan_attack`; scatter terrain
 seeded + never on deploy zones. **Not verified:** the imgui window itself — run
 `uv run --extra ui foosim-ui --play --seed 3`.
-Bolster is one checkbox mapping to a default sub-mode (run / focused_fire /
-focused_strike / dodge / reboot); full sub-mode + charge/snap-shot picker is
-deferred.
+
+**M6 follow-up — bolstered actions everywhere:**
+- `legal.legal_actions(..., bolster=True)` (default) now emits the legal
+  bolstered variants: run / charge / focused_fire / unleash_hell /
+  focused_strike / fury / ram / dodge / reboot. `snap_shot` still omitted
+  (engine stub — resolver accepts it but does nothing; TODO M7).
+- `RandomPolicy(bolster_bias=0.75)` steers toward bolstered variants while a
+  unit has HEAT headroom, backs off near the limit — table play bolsters almost
+  every activation. `bolster_bias=0.0` reproduces the old no-bolster baseline.
+  Goldens regenerated; determinism holds.
+- UI: the bolster checkbox is now a per-action sub-mode combo (standard + the
+  legal variants for that action); charge auto-targets an enemy adjacent to the
+  chosen destination; ram shows fixed 1d3/1d3; Purge has separate
+  "purge heat" / "reboot" buttons. Sub-mode resets to standard per action.
 
 ### M7 — Full content + generators
 Wire every weapon/ammo/upgrade/frame via `engine/effects.py` registry + data.

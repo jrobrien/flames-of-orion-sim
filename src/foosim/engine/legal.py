@@ -76,49 +76,103 @@ def move_paths(state, unit, *, budget: int) -> dict[Hex, list[Hex]]:
     return out
 
 
-def legal_actions(state, unit, rules) -> list:
+def _usable(weapons, kind: str) -> list[int]:
+    return [
+        i for i, w in enumerate(weapons)
+        if w.kind == kind and not w.used_this_turn and not w.disabled
+    ]
+
+
+def _ranged_can_hit(state, u, wspec, t, rules, cfg) -> bool:
+    d = hexgrid.distance(u.pos, t.pos)
+    mr = wspec.get("max_range_inches")
+    if mr is not None and d > rules.inches_to_hexes(mr):
+        return False
+    if "ignores_los" in set(wspec.get("special", [])):
+        return True
+    return line_of_sight(state, u.pos, t.pos, cfg).los
+
+
+def legal_actions(state, unit, rules, *, bolster: bool = True) -> list:
+    """Every action ``unit`` may take now. With ``bolster`` (default), also lists
+    the legal bolstered variants (run / charge / focused_fire / unleash_hell /
+    focused_strike / fury / ram / dodge / reboot). ``snap_shot`` is omitted - the
+    engine does not implement it yet."""
+    u = unit
     acts: list = []
-    engaged = is_engaged(state, unit)
-    speed = unit.stat("speed")
-
-    if engaged:
-        for path in move_paths(state, unit, budget=speed // 2).values():
-            acts.append(DisengageAction(unit.id, path))
-    else:
-        for path in move_paths(state, unit, budget=speed).values():
-            acts.append(MoveAction(unit.id, path))
-
+    engaged = is_engaged(state, u)
+    speed = u.stat("speed")
     cfg = VisibilityConfig.from_rules(rules.raw)
-    enemies = [t for t in state.units.values() if t.side != unit.side and not t.out_of_action]
+    enemies = [t for t in state.units.values() if t.side != u.side and not t.out_of_action]
+    melee_idx = _usable(u.weapons, "melee")
 
+    # ---- movement ----
+    if engaged:
+        for path in move_paths(state, u, budget=speed // 2).values():
+            acts.append(DisengageAction(u.id, path))
+            if bolster:
+                acts.append(DisengageAction(u.id, path, bolster="dodge"))
+    else:
+        base_paths = move_paths(state, u, budget=speed)
+        for path in base_paths.values():
+            acts.append(MoveAction(u.id, path))
+        if bolster:
+            run_budget = speed + rules.inches_to_hexes(3)
+            for path in move_paths(state, u, budget=run_budget).values():
+                acts.append(MoveAction(u.id, path, bolster="run"))
+            if melee_idx:
+                mi = melee_idx[0]
+                for dest, path in base_paths.items():
+                    e = next((x for x in enemies if hexgrid.distance(dest, x.pos) <= 1), None)
+                    if e is not None:
+                        acts.append(MoveAction(u.id, path, bolster="charge",
+                                               melee_target=e.id, melee_weapon_index=mi))
+
+    # ---- ranged ----
     if not engaged:
-        for i, w in enumerate(unit.weapons):
-            if w.kind != "ranged" or w.used_this_turn or w.disabled:
-                continue
-            wspec = rules.weapon(w.weapon_id)
-            specials = set(wspec.get("special", []))
+        ranged_idx = _usable(u.weapons, "ranged")
+        can_hit: dict[tuple[int, str], bool] = {}
+        for i in ranged_idx:
+            wspec = rules.weapon(u.weapons[i].weapon_id)
             for t in enemies:
-                d = hexgrid.distance(unit.pos, t.pos)
-                mr = wspec.get("max_range_inches")
-                if mr is not None and d > rules.inches_to_hexes(mr):
+                if not _ranged_can_hit(state, u, wspec, t, rules, cfg):
                     continue
-                has_los = "ignores_los" in specials or line_of_sight(
-                    state, unit.pos, t.pos, cfg
-                ).los
-                if not has_los:
-                    continue
-                acts.append(RangedAttackAction(unit.id, t.id, i))
+                can_hit[(i, t.id)] = True
+                acts.append(RangedAttackAction(u.id, t.id, i))
+                if bolster:
+                    acts.append(RangedAttackAction(u.id, t.id, i, bolster="focused_fire"))
+        if bolster and ranged_idx:
+            for t in enemies:
+                if all(can_hit.get((i, t.id)) for i in ranged_idx):
+                    acts.append(
+                        RangedAttackAction(u.id, t.id, ranged_idx[0], bolster="unleash_hell")
+                    )
 
-    for i, w in enumerate(unit.weapons):
-        if w.kind != "melee" or w.used_this_turn or w.disabled:
-            continue
-        wspec = rules.weapon(w.weapon_id)
+    # ---- melee ----
+    can_melee: dict[tuple[int, str], bool] = {}
+    for i in melee_idx:
+        wspec = rules.weapon(u.weapons[i].weapon_id)
         reach = rules.inches_to_hexes(wspec.get("reach_inches", 1))
         for t in enemies:
-            if hexgrid.distance(unit.pos, t.pos) <= reach:
-                acts.append(MeleeAttackAction(unit.id, t.id, i))
+            if hexgrid.distance(u.pos, t.pos) <= reach:
+                can_melee[(i, t.id)] = True
+                acts.append(MeleeAttackAction(u.id, t.id, i))
+                if bolster:
+                    acts.append(MeleeAttackAction(u.id, t.id, i, bolster="focused_strike"))
+    if bolster and melee_idx:
+        for t in enemies:
+            if all(can_melee.get((i, t.id)) for i in melee_idx):
+                acts.append(MeleeAttackAction(u.id, t.id, melee_idx[0], bolster="fury"))
+    if bolster and u.can_ram:
+        for t in enemies:
+            if hexgrid.distance(u.pos, t.pos) <= 1:
+                acts.append(MeleeAttackAction(u.id, t.id, melee_idx[0] if melee_idx else 0,
+                                              bolster="ram"))
 
-    if unit.heat > 0 and not unit.statuses.get("purged_this_turn"):
-        acts.append(PurgeHeatAction(unit.id))
+    # ---- purge ----
+    if u.heat > 0 and not u.statuses.get("purged_this_turn"):
+        acts.append(PurgeHeatAction(u.id))
+        if bolster and state.actions_taken == 0:
+            acts.append(PurgeHeatAction(u.id, bolster="reboot"))
 
     return acts

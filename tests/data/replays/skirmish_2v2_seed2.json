@@ -15,57 +15,57 @@
           1
         ],
         [
-          6,
+          4,
           1
         ],
         [
-          7,
+          3,
           1
         ],
         [
-          8,
+          2,
           1
         ],
         [
-          9,
-          1
-        ],
-        [
-          10,
-          1
-        ],
-        [
-          11,
-          0
+          1,
+          2
         ]
       ],
       "unit_id": "A1"
     },
     {
-      "bolster": null,
+      "bolster": "run",
       "kind": "MoveAction",
       "melee_target": null,
       "melee_weapon_index": null,
       "path": [
         [
-          11,
-          0
-        ],
-        [
-          10,
-          1
-        ],
-        [
-          10,
+          1,
           2
         ],
         [
-          10,
+          2,
+          2
+        ],
+        [
+          2,
           3
         ],
         [
-          10,
+          2,
           4
+        ],
+        [
+          2,
+          5
+        ],
+        [
+          2,
+          6
+        ],
+        [
+          2,
+          7
         ]
       ],
       "unit_id": "A1"
@@ -75,7 +75,7 @@
       "unit_id": "B1"
     },
     {
-      "bolster": null,
+      "bolster": "run",
       "kind": "MoveAction",
       "melee_target": null,
       "melee_weapon_index": null,
@@ -85,841 +85,54 @@
           10
         ],
         [
-          1,
-          9
-        ],
-        [
-          2,
-          8
-        ],
-        [
-          3,
-          7
-        ],
-        [
-          4,
-          6
-        ]
-      ],
-      "unit_id": "B1"
-    },
-    {
-      "kind": "EndActivation"
-    },
-    {
-      "kind": "ActivateUnit",
-      "unit_id": "A2"
-    },
-    {
-      "bolster": null,
-      "kind": "MoveAction",
-      "melee_target": null,
-      "melee_weapon_index": null,
-      "path": [
-        [
-          10,
-          1
-        ],
-        [
-          11,
-          1
-        ],
-        [
-          12,
-          1
-        ],
-        [
-          13,
-          1
-        ],
-        [
-          14,
-          0
-        ]
-      ],
-      "unit_id": "A2"
-    },
-    {
-      "bolster": null,
-      "kind": "MoveAction",
-      "melee_target": null,
-      "melee_weapon_index": null,
-      "path": [
-        [
-          14,
-          0
-        ],
-        [
-          13,
-          0
-        ],
-        [
-          12,
-          0
-        ],
-        [
-          11,
-          1
-        ],
-        [
-          10,
-          2
-        ]
-      ],
-      "unit_id": "A2"
-    },
-    {
-      "kind": "ActivateUnit",
-      "unit_id": "B2"
-    },
-    {
-      "bolster": null,
-      "kind": "MoveAction",
-      "melee_target": null,
-      "melee_weapon_index": null,
-      "path": [
-        [
-          5,
-          10
-        ],
-        [
-          6,
-          10
-        ],
-        [
-          7,
-          10
-        ]
-      ],
-      "unit_id": "B2"
-    },
-    {
-      "bolster": null,
-      "kind": "MoveAction",
-      "melee_target": null,
-      "melee_weapon_index": null,
-      "path": [
-        [
-          7,
-          10
-        ],
-        [
-          6,
-          10
-        ],
-        [
-          5,
-          10
-        ],
-        [
-          4,
-          10
-        ],
-        [
-          3,
-          10
-        ],
-        [
-          2,
-          10
-        ],
-        [
-          1,
-          10
-        ]
-      ],
-      "unit_id": "B2"
-    },
-    {
-      "kind": "ActivateUnit",
-      "unit_id": "B1"
-    },
-    {
-      "bolster": null,
-      "kind": "MoveAction",
-      "melee_target": null,
-      "melee_weapon_index": null,
-      "path": [
-        [
-          4,
-          6
-        ],
-        [
-          5,
-          6
-        ],
-        [
-          5,
-          7
-        ],
-        [
-          5,
-          8
-        ],
-        [
-          5,
-          9
-        ],
-        [
-          5,
-          10
-        ],
-        [
-          5,
-          11
-        ]
-      ],
-      "unit_id": "B1"
-    },
-    {
-      "bolster": null,
-      "kind": "MoveAction",
-      "melee_target": null,
-      "melee_weapon_index": null,
-      "path": [
-        [
-          5,
-          11
-        ],
-        [
-          5,
-          10
-        ],
-        [
-          5,
-          9
-        ],
-        [
-          5,
-          8
-        ],
-        [
-          4,
-          8
-        ],
-        [
-          3,
-          8
-        ],
-        [
-          2,
-          8
-        ]
-      ],
-      "unit_id": "B1"
-    },
-    {
-      "kind": "ActivateUnit",
-      "unit_id": "A1"
-    },
-    {
-      "bolster": null,
-      "kind": "MoveAction",
-      "melee_target": null,
-      "melee_weapon_index": null,
-      "path": [
-        [
-          10,
-          4
-        ],
-        [
-          9,
-          5
-        ],
-        [
-          8,
-          6
-        ],
-        [
-          7,
-          7
-        ],
-        [
-          6,
-          8
-        ],
-        [
-          5,
-          9
-        ],
-        [
-          5,
-          10
-        ]
-      ],
-      "unit_id": "A1"
-    },
-    {
-      "bolster": null,
-      "kind": "MoveAction",
-      "melee_target": null,
-      "melee_weapon_index": null,
-      "path": [
-        [
-          5,
-          10
-        ],
-        [
-          6,
-          10
-        ],
-        [
-          7,
-          9
-        ],
-        [
-          8,
-          8
-        ],
-        [
-          9,
-          8
-        ],
-        [
-          10,
-          7
-        ],
-        [
-          11,
-          6
-        ]
-      ],
-      "unit_id": "A1"
-    },
-    {
-      "kind": "ActivateUnit",
-      "unit_id": "B2"
-    },
-    {
-      "bolster": null,
-      "kind": "MoveAction",
-      "melee_target": null,
-      "melee_weapon_index": null,
-      "path": [
-        [
-          1,
-          10
-        ],
-        [
-          2,
-          9
-        ],
-        [
-          3,
-          8
-        ]
-      ],
-      "unit_id": "B2"
-    },
-    {
-      "kind": "EndActivation"
-    },
-    {
-      "kind": "ActivateUnit",
-      "unit_id": "A2"
-    },
-    {
-      "bolster": null,
-      "kind": "MoveAction",
-      "melee_target": null,
-      "melee_weapon_index": null,
-      "path": [
-        [
-          10,
-          2
-        ],
-        [
-          10,
-          1
-        ],
-        [
-          9,
-          1
-        ]
-      ],
-      "unit_id": "A2"
-    },
-    {
-      "bolster": null,
-      "kind": "MoveAction",
-      "melee_target": null,
-      "melee_weapon_index": null,
-      "path": [
-        [
-          9,
-          1
-        ],
-        [
-          8,
-          2
-        ],
-        [
-          8,
-          3
-        ],
-        [
-          8,
-          4
-        ],
-        [
-          7,
-          5
-        ],
-        [
-          6,
-          5
-        ]
-      ],
-      "unit_id": "A2"
-    },
-    {
-      "kind": "ActivateUnit",
-      "unit_id": "A2"
-    },
-    {
-      "bolster": null,
-      "kind": "MoveAction",
-      "melee_target": null,
-      "melee_weapon_index": null,
-      "path": [
-        [
-          6,
-          5
-        ],
-        [
-          5,
-          6
-        ],
-        [
-          5,
-          7
-        ],
-        [
-          5,
-          8
-        ],
-        [
-          5,
-          9
-        ],
-        [
-          5,
-          10
-        ],
-        [
-          5,
-          11
-        ]
-      ],
-      "unit_id": "A2"
-    },
-    {
-      "bolster": null,
-      "kind": "MoveAction",
-      "melee_target": null,
-      "melee_weapon_index": null,
-      "path": [
-        [
-          5,
-          11
-        ],
-        [
-          5,
-          10
-        ],
-        [
-          5,
-          9
-        ],
-        [
-          5,
-          8
-        ],
-        [
-          5,
-          7
-        ]
-      ],
-      "unit_id": "A2"
-    },
-    {
-      "kind": "ActivateUnit",
-      "unit_id": "B2"
-    },
-    {
-      "bolster": null,
-      "kind": "MoveAction",
-      "melee_target": null,
-      "melee_weapon_index": null,
-      "path": [
-        [
-          3,
-          8
-        ],
-        [
-          3,
-          7
-        ],
-        [
-          2,
-          7
-        ]
-      ],
-      "unit_id": "B2"
-    },
-    {
-      "kind": "EndActivation"
-    },
-    {
-      "kind": "ActivateUnit",
-      "unit_id": "A1"
-    },
-    {
-      "bolster": null,
-      "kind": "MoveAction",
-      "melee_target": null,
-      "melee_weapon_index": null,
-      "path": [
-        [
-          11,
-          6
-        ],
-        [
-          11,
-          5
-        ],
-        [
-          10,
-          5
-        ]
-      ],
-      "unit_id": "A1"
-    },
-    {
-      "kind": "EndActivation"
-    },
-    {
-      "kind": "ActivateUnit",
-      "unit_id": "B1"
-    },
-    {
-      "bolster": null,
-      "kind": "MoveAction",
-      "melee_target": null,
-      "melee_weapon_index": null,
-      "path": [
-        [
-          2,
-          8
-        ],
-        [
-          3,
-          8
-        ],
-        [
-          4,
-          8
-        ],
-        [
-          5,
-          8
-        ],
-        [
-          6,
-          8
-        ],
-        [
-          7,
-          7
-        ],
-        [
-          8,
-          6
-        ]
-      ],
-      "unit_id": "B1"
-    },
-    {
-      "bolster": null,
-      "kind": "MoveAction",
-      "melee_target": null,
-      "melee_weapon_index": null,
-      "path": [
-        [
-          8,
-          6
-        ],
-        [
-          9,
-          6
-        ],
-        [
-          10,
-          6
-        ],
-        [
-          11,
-          6
-        ],
-        [
-          11,
-          7
-        ],
-        [
-          11,
-          8
-        ],
-        [
-          11,
-          9
-        ]
-      ],
-      "unit_id": "B1"
-    },
-    {
-      "kind": "ActivateUnit",
-      "unit_id": "B1"
-    },
-    {
-      "bolster": null,
-      "kind": "MoveAction",
-      "melee_target": null,
-      "melee_weapon_index": null,
-      "path": [
-        [
-          11,
-          9
-        ],
-        [
-          11,
-          8
-        ],
-        [
-          10,
-          8
-        ],
-        [
-          9,
-          8
-        ],
-        [
-          8,
-          8
-        ],
-        [
-          7,
-          8
-        ],
-        [
-          6,
-          8
-        ]
-      ],
-      "unit_id": "B1"
-    },
-    {
-      "kind": "EndActivation"
-    },
-    {
-      "kind": "ActivateUnit",
-      "unit_id": "A2"
-    },
-    {
-      "bolster": null,
-      "kind": "MoveAction",
-      "melee_target": null,
-      "melee_weapon_index": null,
-      "path": [
-        [
-          5,
-          7
-        ],
-        [
-          6,
-          7
-        ],
-        [
-          7,
-          7
-        ],
-        [
-          8,
-          7
-        ],
-        [
-          9,
-          6
-        ],
-        [
-          10,
-          5
-        ],
-        [
-          11,
-          4
-        ]
-      ],
-      "unit_id": "A2"
-    },
-    {
-      "bolster": null,
-      "kind": "MoveAction",
-      "melee_target": null,
-      "melee_weapon_index": null,
-      "path": [
-        [
-          11,
-          4
-        ],
-        [
-          12,
-          3
-        ],
-        [
-          13,
-          2
-        ],
-        [
-          13,
-          1
-        ]
-      ],
-      "unit_id": "A2"
-    },
-    {
-      "kind": "ActivateUnit",
-      "unit_id": "B2"
-    },
-    {
-      "bolster": null,
-      "kind": "MoveAction",
-      "melee_target": null,
-      "melee_weapon_index": null,
-      "path": [
-        [
-          2,
-          7
-        ],
-        [
-          1,
-          8
-        ],
-        [
-          0,
-          9
-        ]
-      ],
-      "unit_id": "B2"
-    },
-    {
-      "bolster": null,
-      "kind": "MoveAction",
-      "melee_target": null,
-      "melee_weapon_index": null,
-      "path": [
-        [
           0,
           9
         ],
         [
-          1,
+          0,
           8
         ],
         [
-          2,
-          7
+          -1,
+          8
         ]
       ],
-      "unit_id": "B2"
+      "unit_id": "B1"
     },
     {
-      "kind": "ActivateUnit",
-      "unit_id": "A1"
-    },
-    {
-      "bolster": null,
-      "kind": "MoveAction",
-      "melee_target": null,
-      "melee_weapon_index": null,
-      "path": [
-        [
-          10,
-          5
-        ],
-        [
-          9,
-          5
-        ],
-        [
-          8,
-          5
-        ],
-        [
-          7,
-          5
-        ],
-        [
-          6,
-          5
-        ],
-        [
-          5,
-          5
-        ],
-        [
-          4,
-          6
-        ]
-      ],
-      "unit_id": "A1"
-    },
-    {
-      "bolster": null,
-      "kind": "MoveAction",
-      "melee_target": null,
-      "melee_weapon_index": null,
-      "path": [
-        [
-          4,
-          6
-        ],
-        [
-          5,
-          5
-        ],
-        [
-          5,
-          4
-        ],
-        [
-          6,
-          3
-        ],
-        [
-          7,
-          2
-        ],
-        [
-          8,
-          1
-        ]
-      ],
-      "unit_id": "A1"
+      "kind": "EndActivation"
     },
     {
       "kind": "ActivateUnit",
       "unit_id": "A2"
     },
     {
-      "bolster": null,
+      "bolster": "run",
       "kind": "MoveAction",
       "melee_target": null,
       "melee_weapon_index": null,
       "path": [
         [
-          13,
+          10,
           1
         ],
+        [
+          11,
+          1
+        ],
+        [
+          12,
+          1
+        ]
+      ],
+      "unit_id": "A2"
+    },
+    {
+      "bolster": "run",
+      "kind": "MoveAction",
+      "melee_target": null,
+      "melee_weapon_index": null,
+      "path": [
         [
           12,
           1
@@ -931,9 +144,29 @@
         [
           10,
           3
+        ],
+        [
+          10,
+          4
+        ],
+        [
+          10,
+          5
+        ],
+        [
+          10,
+          6
+        ],
+        [
+          10,
+          7
         ]
       ],
       "unit_id": "A2"
+    },
+    {
+      "kind": "ActivateUnit",
+      "unit_id": "B2"
     },
     {
       "bolster": null,
@@ -942,42 +175,219 @@
       "melee_weapon_index": null,
       "path": [
         [
-          10,
-          3
+          5,
+          10
+        ],
+        [
+          6,
+          9
+        ],
+        [
+          7,
+          8
+        ]
+      ],
+      "unit_id": "B2"
+    },
+    {
+      "kind": "EndActivation"
+    },
+    {
+      "kind": "ActivateUnit",
+      "unit_id": "B2"
+    },
+    {
+      "bolster": null,
+      "kind": "MoveAction",
+      "melee_target": null,
+      "melee_weapon_index": null,
+      "path": [
+        [
+          7,
+          8
+        ],
+        [
+          8,
+          7
+        ],
+        [
+          9,
+          6
+        ],
+        [
+          9,
+          5
+        ]
+      ],
+      "unit_id": "B2"
+    },
+    {
+      "bolster": "run",
+      "kind": "MoveAction",
+      "melee_target": null,
+      "melee_weapon_index": null,
+      "path": [
+        [
+          9,
+          5
         ],
         [
           9,
           4
         ],
         [
+          9,
+          3
+        ],
+        [
+          9,
+          2
+        ],
+        [
+          9,
+          1
+        ],
+        [
+          9,
+          0
+        ]
+      ],
+      "unit_id": "B2"
+    },
+    {
+      "kind": "ActivateUnit",
+      "unit_id": "A2"
+    },
+    {
+      "bolster": "run",
+      "kind": "MoveAction",
+      "melee_target": null,
+      "melee_weapon_index": null,
+      "path": [
+        [
+          10,
+          7
+        ],
+        [
+          10,
+          6
+        ],
+        [
+          10,
+          5
+        ],
+        [
+          9,
+          5
+        ],
+        [
           8,
           5
         ],
         [
           7,
-          6
+          5
         ],
         [
           6,
-          7
+          5
+        ]
+      ],
+      "unit_id": "A2"
+    },
+    {
+      "bolster": null,
+      "kind": "MoveAction",
+      "melee_target": null,
+      "melee_weapon_index": null,
+      "path": [
+        [
+          6,
+          5
         ],
         [
           5,
-          8
+          5
         ],
         [
           5,
-          9
+          4
+        ],
+        [
+          6,
+          3
+        ],
+        [
+          6,
+          2
         ]
       ],
       "unit_id": "A2"
     },
     {
       "kind": "ActivateUnit",
-      "unit_id": "B2"
+      "unit_id": "B1"
+    },
+    {
+      "bolster": "run",
+      "kind": "MoveAction",
+      "melee_target": null,
+      "melee_weapon_index": null,
+      "path": [
+        [
+          -1,
+          8
+        ],
+        [
+          0,
+          8
+        ],
+        [
+          1,
+          8
+        ],
+        [
+          1,
+          9
+        ]
+      ],
+      "unit_id": "B1"
     },
     {
       "bolster": null,
+      "kind": "MoveAction",
+      "melee_target": null,
+      "melee_weapon_index": null,
+      "path": [
+        [
+          1,
+          9
+        ],
+        [
+          2,
+          9
+        ],
+        [
+          3,
+          9
+        ],
+        [
+          4,
+          8
+        ],
+        [
+          5,
+          7
+        ]
+      ],
+      "unit_id": "B1"
+    },
+    {
+      "kind": "ActivateUnit",
+      "unit_id": "A1"
+    },
+    {
+      "bolster": "run",
       "kind": "MoveAction",
       "melee_target": null,
       "melee_weapon_index": null,
@@ -999,36 +409,48 @@
           4
         ],
         [
-          1,
-          4
+          2,
+          3
         ]
       ],
-      "unit_id": "B2"
+      "unit_id": "A1"
     },
     {
-      "bolster": null,
+      "bolster": "run",
       "kind": "MoveAction",
       "melee_target": null,
       "melee_weapon_index": null,
       "path": [
         [
-          1,
-          4
+          2,
+          3
         ],
         [
-          2,
-          4
+          3,
+          3
         ],
         [
-          2,
-          5
+          4,
+          3
+        ],
+        [
+          5,
+          3
+        ],
+        [
+          6,
+          3
+        ],
+        [
+          7,
+          2
         ]
       ],
-      "unit_id": "B2"
+      "unit_id": "A1"
     },
     {
       "kind": "ActivateUnit",
-      "unit_id": "A1"
+      "unit_id": "A2"
     },
     {
       "bolster": null,
@@ -1036,27 +458,6 @@
       "melee_target": null,
       "melee_weapon_index": null,
       "path": [
-        [
-          8,
-          1
-        ],
-        [
-          7,
-          2
-        ]
-      ],
-      "unit_id": "A1"
-    },
-    {
-      "bolster": null,
-      "kind": "MoveAction",
-      "melee_target": null,
-      "melee_weapon_index": null,
-      "path": [
-        [
-          7,
-          2
-        ],
         [
           6,
           2
@@ -1070,23 +471,11 @@
           4
         ],
         [
-          3,
+          4,
           5
-        ],
-        [
-          2,
-          6
-        ],
-        [
-          1,
-          7
         ]
       ],
-      "unit_id": "A1"
-    },
-    {
-      "kind": "ActivateUnit",
-      "unit_id": "B1"
+      "unit_id": "A2"
     },
     {
       "bolster": null,
@@ -1095,34 +484,343 @@
       "melee_weapon_index": null,
       "path": [
         [
-          6,
-          8
+          4,
+          5
         ],
         [
           5,
-          8
+          4
         ],
         [
-          4,
-          8
+          6,
+          3
         ],
         [
-          3,
-          8
+          7,
+          2
         ],
         [
-          2,
-          9
+          8,
+          1
+        ]
+      ],
+      "unit_id": "A2"
+    },
+    {
+      "kind": "ActivateUnit",
+      "unit_id": "B1"
+    },
+    {
+      "bolster": "run",
+      "kind": "MoveAction",
+      "melee_target": null,
+      "melee_weapon_index": null,
+      "path": [
+        [
+          5,
+          7
         ],
         [
-          1,
-          10
+          6,
+          6
+        ],
+        [
+          7,
+          5
+        ],
+        [
+          8,
+          4
+        ],
+        [
+          9,
+          3
+        ],
+        [
+          10,
+          2
+        ],
+        [
+          11,
+          1
         ]
       ],
       "unit_id": "B1"
     },
     {
       "kind": "EndActivation"
+    },
+    {
+      "kind": "ActivateUnit",
+      "unit_id": "A1"
+    },
+    {
+      "bolster": null,
+      "kind": "MoveAction",
+      "melee_target": null,
+      "melee_weapon_index": null,
+      "path": [
+        [
+          7,
+          2
+        ],
+        [
+          7,
+          1
+        ],
+        [
+          7,
+          0
+        ]
+      ],
+      "unit_id": "A1"
+    },
+    {
+      "bolster": null,
+      "kind": "MoveAction",
+      "melee_target": null,
+      "melee_weapon_index": null,
+      "path": [
+        [
+          7,
+          0
+        ],
+        [
+          6,
+          0
+        ],
+        [
+          5,
+          1
+        ],
+        [
+          4,
+          2
+        ],
+        [
+          3,
+          3
+        ],
+        [
+          2,
+          3
+        ]
+      ],
+      "unit_id": "A1"
+    },
+    {
+      "kind": "ActivateUnit",
+      "unit_id": "B2"
+    },
+    {
+      "bolster": "dodge",
+      "kind": "DisengageAction",
+      "path": [
+        [
+          9,
+          0
+        ],
+        [
+          9,
+          1
+        ],
+        [
+          9,
+          2
+        ],
+        [
+          9,
+          3
+        ]
+      ],
+      "unit_id": "B2"
+    },
+    {
+      "kind": "EndActivation"
+    },
+    {
+      "kind": "ActivateUnit",
+      "unit_id": "B2"
+    },
+    {
+      "bolster": "run",
+      "kind": "MoveAction",
+      "melee_target": null,
+      "melee_weapon_index": null,
+      "path": [
+        [
+          9,
+          3
+        ],
+        [
+          8,
+          4
+        ],
+        [
+          7,
+          5
+        ],
+        [
+          6,
+          6
+        ],
+        [
+          5,
+          7
+        ],
+        [
+          5,
+          8
+        ],
+        [
+          5,
+          9
+        ],
+        [
+          5,
+          10
+        ]
+      ],
+      "unit_id": "B2"
+    },
+    {
+      "bolster": null,
+      "kind": "MoveAction",
+      "melee_target": null,
+      "melee_weapon_index": null,
+      "path": [
+        [
+          5,
+          10
+        ],
+        [
+          4,
+          11
+        ]
+      ],
+      "unit_id": "B2"
+    },
+    {
+      "kind": "ActivateUnit",
+      "unit_id": "A1"
+    },
+    {
+      "bolster": null,
+      "kind": "MoveAction",
+      "melee_target": null,
+      "melee_weapon_index": null,
+      "path": [
+        [
+          2,
+          3
+        ],
+        [
+          3,
+          3
+        ],
+        [
+          4,
+          3
+        ],
+        [
+          5,
+          3
+        ],
+        [
+          6,
+          3
+        ],
+        [
+          7,
+          2
+        ],
+        [
+          8,
+          1
+        ]
+      ],
+      "unit_id": "A1"
+    },
+    {
+      "kind": "EndActivation"
+    },
+    {
+      "kind": "ActivateUnit",
+      "unit_id": "B1"
+    },
+    {
+      "bolster": "run",
+      "kind": "MoveAction",
+      "melee_target": null,
+      "melee_weapon_index": null,
+      "path": [
+        [
+          11,
+          1
+        ],
+        [
+          10,
+          2
+        ],
+        [
+          9,
+          3
+        ],
+        [
+          8,
+          4
+        ],
+        [
+          7,
+          5
+        ],
+        [
+          7,
+          6
+        ],
+        [
+          7,
+          7
+        ]
+      ],
+      "unit_id": "B1"
+    },
+    {
+      "bolster": "run",
+      "kind": "MoveAction",
+      "melee_target": null,
+      "melee_weapon_index": null,
+      "path": [
+        [
+          7,
+          7
+        ],
+        [
+          8,
+          6
+        ],
+        [
+          9,
+          5
+        ],
+        [
+          10,
+          4
+        ],
+        [
+          11,
+          3
+        ],
+        [
+          12,
+          2
+        ],
+        [
+          13,
+          1
+        ]
+      ],
+      "unit_id": "B1"
     }
   ],
   "initial_state": {
@@ -1750,10 +1448,10 @@
   },
   "label": "skirmish_2v2 seed 2 RandomPolicy",
   "outcome": {
-    "end_reason": "round_limit",
+    "end_reason": "annihilation",
     "rounds": 5,
-    "steps": 70,
-    "winner": 1
+    "steps": 53,
+    "winner": 0
   },
   "ruleset_hash": "5d01eab8785a",
   "seed": 2,

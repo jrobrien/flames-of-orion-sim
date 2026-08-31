@@ -31,7 +31,7 @@ from foosim.engine.rules import load as load_rules
 from foosim.sim import replay as replaymod
 from foosim.sim.setups import skirmish_2v2
 from foosim.ui.camera import Camera
-from foosim.ui.interaction import compute_overlay, submode
+from foosim.ui.interaction import SUBMODE_LABELS, SUBMODES, compute_overlay
 from foosim.ui.session import Session
 from foosim.ui.timeline import Timeline
 
@@ -55,7 +55,7 @@ class UiState:
     hover_hex: object = None
     action_mode: str = "idle"
     pending_weapon: int | None = None
-    bolster: bool = False
+    submode: str = ""  # "" == standard; else a bolster sub-mode string
     last_error: str = ""
     log_filter: str = ""
     follow_log: bool = True
@@ -70,7 +70,7 @@ class UiState:
     def reset_targeting(self) -> None:
         self.action_mode = "idle"
         self.pending_weapon = None
-        self.bolster = False  # bolster is opt-in per action
+        self.submode = ""  # bolster is opt-in per action
 
     def try_submit(self, decision) -> bool:
         """Submit to the Session, surfacing an illegal action instead of crashing."""
@@ -244,7 +244,7 @@ def _actions(ui: UiState) -> None:
     side = st.active_side
 
     def _begin(mode: str, weapon: int | None) -> None:
-        ui.action_mode, ui.pending_weapon, ui.last_error = mode, weapon, ""
+        ui.action_mode, ui.pending_weapon, ui.submode, ui.last_error = mode, weapon, "", ""
 
     if st.activating_unit is None:
         imgui.text(f"side {side}: choose a unit to activate")
@@ -262,7 +262,7 @@ def _actions(ui: UiState) -> None:
     ui.selected_id = u.id
     imgui.text(f"{u.id}: action {st.actions_taken + 1}/{ui.rules.game['actions_per_activation']}"
                f"   heat {u.heat}/{u.stat('heat_limit')}")
-    _, ui.bolster = imgui.checkbox("bolster", ui.bolster)
+    imgui.text_disabled("a 2nd action / bolstered action each add +1 heat")
     imgui.separator()
 
     engaged = _is_engaged(st, u)
@@ -279,16 +279,27 @@ def _actions(ui: UiState) -> None:
             _begin("targeting_disengage", None)
     elif imgui.button("move"):
         _begin("targeting_move", None)
-    if u.heat > 0 and not u.statuses.get("purged_this_turn") and imgui.button("purge heat"):
-        ui.try_submit(PurgeHeatAction(u.id, bolster="reboot" if ui.bolster else None))
+    if u.heat > 0 and not u.statuses.get("purged_this_turn"):
+        if imgui.button("purge heat  (d3)"):
+            ui.try_submit(PurgeHeatAction(u.id))
+        if st.actions_taken == 0:
+            imgui.same_line()
+            if imgui.button("reboot  (2d3, sole action)"):
+                ui.try_submit(PurgeHeatAction(u.id, bolster="reboot"))
     if imgui.button("end activation"):
         ui.try_submit(EndActivation())
 
     if ui.action_mode != "idle":
         imgui.separator()
-        imgui.text_colored(imgui.ImVec4(0.6, 0.85, 1.0, 1.0),
-                           f"targeting: {ui.action_mode[10:]}"
-                           + ("  (bolstered)" if ui.bolster else ""))
+        choices = SUBMODES.get(ui.action_mode, ("",))
+        try:
+            cur = choices.index(ui.submode)
+        except ValueError:
+            cur, ui.submode = 0, ""
+        imgui.set_next_item_width(-1)
+        changed, idx = imgui.combo("##sub", cur, [SUBMODE_LABELS[c] for c in choices])
+        if changed:
+            ui.submode = choices[idx]
         if imgui.button("cancel"):
             ui.reset_targeting()
         _preview(ui, sess, u, resolve)
@@ -307,15 +318,17 @@ def _preview(ui: UiState, sess, u, resolve) -> None:
     from imgui_bundle import imgui
 
     h = ui.hover_hex
+    bolstered = ui.submode != ""
     if h is None:
         imgui.text_disabled("hover the map")
         return
     if ui.action_mode in ("targeting_move", "targeting_disengage"):
-        ov = compute_overlay(sess.live, ui.rules, ui.action_mode, u.id, None, ui.bolster)
+        ov = compute_overlay(sess.live, ui.rules, ui.action_mode, u.id, None, ui.submode)
         path = ov.reachable.get(h)
         if path:
-            heat = (1 if sess.live.actions_taken >= 1 else 0) + (1 if ui.bolster else 0)
-            imgui.text(f"move cost {len(path) - 1}   heat +{heat}")
+            heat = (1 if sess.live.actions_taken >= 1 else 0) + (1 if bolstered else 0)
+            extra = f"  -> free melee vs {ov.charge_targets[h]}" if h in ov.charge_targets else ""
+            imgui.text(f"move cost {len(path) - 1}   heat +{heat}{extra}")
         else:
             imgui.text_disabled("not reachable")
         return
@@ -323,12 +336,20 @@ def _preview(ui: UiState, sess, u, resolve) -> None:
     if tgt is None or tgt.side == u.side:
         imgui.text_disabled("no target here")
         return
+    if ui.submode == "ram":
+        imgui.text(f"ram {tgt.id}: 1d3 to it + 1d3 to self   heat +1")
+        return
     kind = "ranged" if ui.action_mode == "targeting_ranged" else "melee"
+    b = None if ui.submode in ("", "unleash_hell", "fury") else ui.submode
     p = resolve.plan_attack(sess.live, u.id, tgt.id, ui.pending_weapon, ui.rules,
-                            kind=kind, bolster=submode(ui.action_mode, ui.bolster))
+                            kind=kind, bolster=b)
     if not p.legal:
         imgui.text_colored(imgui.ImVec4(1.0, 0.5, 0.4, 1.0), p.reason or "illegal")
         return
+    if ui.submode in ("unleash_hell", "fury"):
+        n = sum(1 for w in u.weapons
+                if w.kind == kind and not w.used_this_turn and not w.disabled)
+        imgui.text_disabled(f"{ui.submode}: {n} weapons rolled separately; showing weapon 1")
     imgui.text(f"vs {tgt.id}:  hit {p.hit_chance * 100:.0f}%   crit {p.crit_chance * 100:.0f}%"
                f"   catastrophic {p.catastrophic_chance * 100:.0f}%")
     imgui.text(f"CS {p.effective_cs}+   save {p.save_tn}+ (AP {p.ap})"
@@ -340,6 +361,11 @@ def _is_engaged(state, u) -> bool:
     from foosim.engine.legal import is_engaged
 
     return is_engaged(state, u)
+
+
+def _first_melee(u) -> int:
+    return next((i for i, w in enumerate(u.weapons)
+                if w.kind == "melee" and not w.used_this_turn and not w.disabled), 0)
 
 
 def _map(ui: UiState) -> None:
@@ -367,7 +393,7 @@ def _map(ui: UiState) -> None:
     overlay = None
     if active_uid and ui.action_mode != "idle" and d.at_live():
         overlay = compute_overlay(st, ui.rules, ui.action_mode, active_uid,
-                                  ui.pending_weapon, ui.bolster)
+                                  ui.pending_weapon, ui.submode)
 
     if imgui.is_item_hovered():
         mp = imgui.get_mouse_pos()
@@ -394,19 +420,23 @@ def _handle_click(ui: UiState, st, hexpos, overlay) -> None:
     unit = st.unit_at(hexpos)
     if overlay is not None and ui.is_session and ui.driver.waiting_for_human():
         u = st.units[st.activating_unit]
+        sub = ui.submode or None
         decision = None
         if ui.action_mode == "targeting_move" and hexpos in overlay.reachable:
-            decision = MoveAction(u.id, overlay.reachable[hexpos],
-                                  bolster="run" if ui.bolster else None)
+            if ui.submode == "charge":
+                decision = MoveAction(u.id, overlay.reachable[hexpos], bolster="charge",
+                                      melee_target=overlay.charge_targets[hexpos],
+                                      melee_weapon_index=_first_melee(u))
+            else:
+                decision = MoveAction(u.id, overlay.reachable[hexpos], bolster=sub)
         elif ui.action_mode == "targeting_disengage" and hexpos in overlay.reachable:
-            decision = DisengageAction(u.id, overlay.reachable[hexpos],
-                                       bolster="dodge" if ui.bolster else None)
+            decision = DisengageAction(u.id, overlay.reachable[hexpos], bolster=sub)
         elif ui.action_mode in ("targeting_ranged", "targeting_melee") \
                 and unit is not None and unit.id in overlay.targets:
             is_ranged = ui.action_mode == "targeting_ranged"
             cls = RangedAttackAction if is_ranged else MeleeAttackAction
-            decision = cls(u.id, unit.id, ui.pending_weapon,
-                           bolster=submode(ui.action_mode, ui.bolster))
+            wi = 0 if ui.pending_weapon is None else ui.pending_weapon
+            decision = cls(u.id, unit.id, wi, bolster=sub)
         if decision is not None:
             ui.try_submit(decision)
             return
