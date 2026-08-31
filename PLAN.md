@@ -484,6 +484,27 @@ summary panel would be a cheap interim.
 `--override` visibly shifts the aggregate; mission victory goes through the
 registry.
 
+### Post-M8 refinements (playtest feedback)
+- **Urban 4v4 is the default.** `sim/setups.city_terrain` (blocky LOS-blocking +
+  cover buildings, indestructible centre towers, a raised central plateau via
+  `mapspec.elevation`). `generate.random_setup` → 4v4 on a 30x30 city board by
+  default (`n` / `cols` / `rows` / `terrain=city|scatter|none` params).
+  `foosim-ui` defaults to urban-4v4 + generated mechs + `GreedyPolicy` AI;
+  `--skirmish` forces the old fixed 2v2. `foosim-analyze --setup
+  {urban(default)|scatter|skirmish}`.
+- **Perf for the bigger board:** `GameState.copy()` shares the immutable
+  `mapspec`; multiray LOS uses 4 sample points (16 ray-pairs) not 7 (49).
+  Urban greedy game 469 → 239 ms.
+- **`GreedyPolicy` fires everything:** leans into `unleash_hell` / `fury` when a
+  mech has ≥2 usable weapons of a kind and HEAT allows.
+- **UI annotations:** the frame in view shows movement trails + shot/melee/
+  free-attack arrows + blast circles (`render.draw_frame_annotations`).
+- **Event log** follows on step, not only during playback.
+- **Generator** only rolls implemented gear by default (`engine/effects.py`
+  `*_supported()`); `--full` opts into the whole table.
+- **Analysis** rows carry `loadout_0` / `loadout_1`; `summarize` adds
+  `distinct_matchups`.
+
 ### M9 — Polish + portability
 `docs/porting-to-godot.md` (state schema, effect-registry inventory, pure-vs-Python
 notes). Tune `GreedyPolicy`, widen tests, README GIF.
