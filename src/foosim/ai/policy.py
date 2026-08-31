@@ -175,12 +175,17 @@ class GreedyPolicy(Policy):
                         kind=kind, bolster=plan_bolster, los_cache=los_cache)
         if not p.legal:
             return 0.0
+
         n = 1
         if multi:
             n = sum(1 for w in u.weapons
                     if w.kind == kind and not w.used_this_turn and not w.disabled)
-        dmg = p.expected_damage_through * (0.9 * n if multi else 1.0)
-        val = p.hit_chance * dmg * self.aggression + p.catastrophic_chance * 3.0
-        if dmg >= t.hp:  # a plausible kill
+        dmg = p.expected_damage_through * (n if multi else 1.0)
+        val = p.hit_chance * dmg * self.aggression + p.catastrophic_chance * 3.0 * n
+        if dmg * p.hit_chance >= t.hp:  # a plausible kill
             val += 4.0
+        # firing every weapon at once is how the game is actually played - lean
+        # into unleash_hell / fury hard whenever there's HEAT headroom for it
+        if multi and n >= 2:
+            val += 1.0 * n
         return val - heat_cost * pen

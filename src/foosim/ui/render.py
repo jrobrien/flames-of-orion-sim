@@ -5,8 +5,11 @@ translates it into imgui calls.
 
 from __future__ import annotations
 
+import math
+
 from imgui_bundle import ImVec2, ImVec4, imgui
 
+from foosim.engine.hexgrid import Hex
 from foosim.ui import format as fmt
 from foosim.ui.camera import Camera
 
@@ -22,6 +25,12 @@ _REACH_HOVER = (0.45, 0.80, 1.0, 0.45)
 _PATH = (0.55, 0.85, 1.0, 1.0)
 _TARGET = (0.98, 0.45, 0.35, 1.0)
 _AIM_OK = (0.45, 0.95, 0.5, 1.0)
+_ANNO_MOVE = (0.62, 0.78, 1.0, 0.85)
+_ANNO_HIT = (0.98, 0.62, 0.32, 1.0)
+_ANNO_MISS = (0.58, 0.58, 0.64, 0.75)
+_ANNO_CRIT = (1.0, 0.86, 0.30, 1.0)
+_ANNO_FREE = (0.80, 0.55, 0.95, 1.0)
+_ANNO_BLAST = (1.0, 0.42, 0.14, 0.9)
 
 
 def _col(rgba: tuple[float, float, float, float]) -> int:
@@ -212,3 +221,54 @@ def draw_event_log(frames, cursor: int, filt: str, follow: bool) -> None:
     if follow:
         imgui.set_scroll_here_y(1.0)
     imgui.end_child()
+
+
+def _arrow(dl, p0: ImVec2, p1: ImVec2, col: int, thickness: float = 2.0) -> None:
+    dl.add_line(p0, p1, col, thickness)
+    dx, dy = p1.x - p0.x, p1.y - p0.y
+    length = math.hypot(dx, dy) or 1.0
+    ux, uy = dx / length, dy / length
+    head = min(11.0, length * 0.35)
+    for ang in (2.4, -2.4):
+        c, s = math.cos(ang), math.sin(ang)
+        dl.add_line(p1, ImVec2(p1.x - (c * ux - s * uy) * head,
+                               p1.y - (s * ux + c * uy) * head), col, thickness)
+
+
+def draw_frame_annotations(state, cam: Camera, origin: tuple[float, float], events) -> None:
+    """Transient marks for what happened on the frame in view: movement trails,
+    shot / melee arrows, blast radii."""
+    dl = imgui.get_window_draw_list()
+
+    def cen(h):
+        cx, cy = cam.hex_to_screen(h)
+        return ImVec2(cx + origin[0], cy + origin[1])
+
+    for e in events:
+        d = e.data
+        if e.kind == "move" and d.get("path") and len(d["path"]) > 1:
+            pts = [cen(Hex(q, r)) for q, r in d["path"]]
+            for a, b in zip(pts[:-1], pts[1:], strict=True):
+                dl.add_line(a, b, _col(_ANNO_MOVE), 2.0)
+            dl.add_circle_filled(pts[0], 3.5, _col(_ANNO_MOVE))
+            _arrow(dl, pts[-2], pts[-1], _col(_ANNO_MOVE), 2.0)
+        elif e.kind in ("attack", "free_attack"):
+            atk = state.units.get(d.get("attacker"))
+            tgt = state.units.get(d.get("target"))
+            if not atk or not tgt:
+                continue
+            if e.kind == "free_attack":
+                col, thick = _ANNO_FREE, 2.0
+            else:
+                col = {"crit": _ANNO_CRIT, "hit": _ANNO_HIT}.get(d.get("outcome"), _ANNO_MISS)
+                thick = 3.5 if d.get("kind") == "melee" else 2.0
+            _arrow(dl, cen(atk.pos), cen(tgt.pos), _col(col), thick)
+        elif e.kind == "snap_shot":
+            frm, tgt = d.get("from_hex"), state.units.get(d.get("target"))
+            if frm and tgt:
+                _arrow(dl, cen(Hex(*frm)), cen(tgt.pos), _col(_ANNO_HIT), 2.0)
+        elif e.kind == "explosion":
+            u = state.units.get(d.get("unit"))
+            if u:
+                r = max(6.0, cam.scale * (d.get("radius", 1) + 0.5))
+                dl.add_circle(cen(u.pos), r, _col(_ANNO_BLAST), 0, 2.0)

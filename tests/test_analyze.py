@@ -3,12 +3,14 @@ from foosim.engine.rules import load
 from foosim.sim.analyze import (
     GameRow,
     diff,
+    loadout_string,
     parse_override,
     read_csv,
     run_many,
     summarize,
     write_csv,
 )
+from foosim.sim.generate import random_setup
 from foosim.sim.setups import skirmish_2v2
 
 RULES = load()
@@ -37,9 +39,27 @@ def test_run_many_shape_and_determinism():
         assert r.damage_dealt >= 0
 
 
+def test_loadout_is_recorded_and_varies_on_random_setups():
+    # fixed skirmish -> every game the same loadout
+    fixed = _rows(RULES, 10)
+    assert all(r.loadout_0 == fixed[0].loadout_0 for r in fixed)
+    assert "*" in fixed[0].loadout_0  # "weapon_id*count,..."
+
+    gs = random_setup(RULES, seed=1)
+    lo = loadout_string(gs, 0)
+    assert lo and lo == ",".join(sorted(lo.split(",")))  # canonical order
+
+    varied = run_many(
+        lambda s: random_setup(RULES, seed=s), _mk_pol(RULES), RULES, n=12
+    )
+    assert len({r.loadout_0 for r in varied}) > 1
+    assert summarize(varied)["distinct_matchups"] > 1
+
+
 def test_summary_keys_and_rates():
     s = summarize(_rows(RULES, 30))
     assert s["games"] == 30
+    assert s["distinct_matchups"] == 1  # fixed skirmish
     assert abs(s["win_rate_0"] + s["win_rate_1"] + s["draw_rate"] - 1.0) < 1e-9
     assert s["decisive_rate"] == s["win_rate_0"] + s["win_rate_1"]
     for k in ("mean_rounds", "mean_damage", "mean_explosions", "mean_heat_deaths"):

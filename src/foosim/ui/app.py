@@ -463,6 +463,7 @@ def _map(ui: UiState) -> None:
     render.draw_map(st, ui.camera, (origin.x, origin.y), (w, hh), ui.selected_id,
                     ui.hover_hex, overlay=overlay,
                     origin_hex=st.units[active_uid].pos if active_uid else None)
+    render.draw_frame_annotations(st, ui.camera, (origin.x, origin.y), fr.events)
 
 
 def _handle_click(ui: UiState, st, hexpos, overlay) -> None:

@@ -34,8 +34,11 @@ __all__ = [
 ]
 
 _POLICIES = {"greedy": GreedyPolicy, "random": RandomPolicy}
-_SETUPS = {"skirmish": lambda r, s: skirmish_2v2(r, seed=s),
-           "random": lambda r, s: random_setup(r, seed=s)}
+_SETUPS = {
+    "urban": lambda r, s: random_setup(r, seed=s),                       # 4v4, 30x30 city
+    "scatter": lambda r, s: random_setup(r, seed=s, terrain="scatter"),  # 4v4, sparse
+    "skirmish": lambda r, s: skirmish_2v2(r, seed=s),                    # fixed 2v2, small
+}
 
 
 @dataclass
@@ -53,9 +56,26 @@ class GameRow:
     explosions: int
     out_of_action: int
     heat_deaths: int
+    loadout_0: str = ""  # "<weapon_id>*<count>,..." across side 0's starting mechs
+    loadout_1: str = ""
+
+
+_STR_FIELDS = frozenset({"end_reason", "loadout_0", "loadout_1"})
+
+
+def loadout_string(state, side: int) -> str:
+    from collections import Counter
+
+    c: Counter[str] = Counter()
+    for u in state.units.values():
+        if u.side == side:
+            c.update(w.weapon_id for w in u.weapons)
+    return ",".join(f"{k}*{v}" for k, v in sorted(c.items()))
 
 
 def run_one(setup, policies, rules: Ruleset, seed: int) -> GameRow:
+    loadout_0 = loadout_string(setup, 0)
+    loadout_1 = loadout_string(setup, 1)
     final, events, steps = run_game(setup, policies, rules)
     dmg = crits = cats = booms = ooa = heat_deaths = 0
     for e in events:
@@ -86,6 +106,8 @@ def run_one(setup, policies, rules: Ruleset, seed: int) -> GameRow:
         explosions=booms,
         out_of_action=ooa,
         heat_deaths=heat_deaths,
+        loadout_0=loadout_0,
+        loadout_1=loadout_1,
     )
 
 
@@ -121,6 +143,7 @@ def summarize(rows: list[GameRow]) -> dict:
         "mean_catastrophics": mean(lambda r: r.catastrophics),
         "mean_explosions": mean(lambda r: r.explosions),
         "mean_heat_deaths": mean(lambda r: r.heat_deaths),
+        "distinct_matchups": len({(r.loadout_0, r.loadout_1) for r in rows}),
     }
 
 
@@ -157,7 +180,7 @@ def write_csv(rows: list[GameRow], path: str | Path) -> None:
 
 
 def read_csv(path: str | Path) -> list[GameRow]:
-    ints = {f.name for f in fields(GameRow)} - {"end_reason"}
+    ints = {f.name for f in fields(GameRow)} - _STR_FIELDS
     out = []
     with Path(path).open(newline="") as fh:
         for d in csv.DictReader(fh):
@@ -176,7 +199,7 @@ def main(argv: list[str] | None = None) -> None:
     ap = argparse.ArgumentParser(description="Bulk Flames of Orion auto-battle analysis")
     ap.add_argument("--games", type=int, default=200)
     ap.add_argument("--seed", type=int, default=0, help="first seed (games use seed..seed+N)")
-    ap.add_argument("--setup", choices=list(_SETUPS), default="skirmish")
+    ap.add_argument("--setup", choices=list(_SETUPS), default="urban")
     ap.add_argument("--matchup", default="greedy-vs-greedy",
                     help="p0-vs-p1, each of: " + " / ".join(_POLICIES))
     ap.add_argument("--override", action="append", default=[], metavar="PATH=VALUE",
