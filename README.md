@@ -12,6 +12,70 @@ diff the aggregates after a rule tweak.
 > paint some mechs, and play it on a table:
 > **<https://underthedice.com/flamesoforion/>**
 
+![foosim watching an AI-vs-AI urban 4v4](docs/img/foosim-ui.png)
+
+*Watching a bot game (`uv run --extra ui foosim-ui`). The yellow line is a Rail
+Weapon shot from `A2` raking down the board until an indestructible building stops
+it — see the `rail_shot` / `rail_blocked` / `+1 heat` entries in the event log on
+the right. Step/play controls are top-left; the unit roster and a per-hex
+inspector dock on the sides.*
+
+## Getting started
+
+`foosim` isn't packaged — run it from a source checkout. It uses
+[uv](https://docs.astral.sh/uv/) for the environment (Python 3.11+, pinned to
+3.12 in `.python-version`).
+
+```bash
+# 1. install uv (once)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# 2. clone and enter
+git clone https://github.com/jrobrien/flames-of-orion-sim.git
+cd flames-of-orion-sim
+
+# 3. build the venv + install everything (engine + ui + analysis + dev tools)
+uv sync --all-extras
+
+# 4. sanity check
+uv run pytest
+```
+
+`uv run <cmd>` runs inside the project venv without activating it; `uv sync` keeps
+it in lockstep with `uv.lock`. Drop `--all-extras` for just the engine + dev
+tools — the `ui` extra adds imgui-bundle, `analysis` adds numpy + pandas. `pytest`
+and `ruff` are in the `dev` group and install by default.
+
+### Run it
+
+```bash
+uv run --extra ui foosim-ui                     # watch a bot game (the screenshot above)
+uv run foosim-autobattle --seed 1              # headless AI vs AI, event log only
+uv run foosim-gen-unit --seed 5                # print random mech stat blocks
+uv run foosim-analyze --games 500 --matchup greedy-vs-greedy          # bulk stats -> summary
+uv run foosim-analyze --games 500 --override heat.second_action=2 --baseline base.csv  # A/B a rule
+uv run --extra ui foosim-ui --replay tests/data/replays/skirmish_2v2_seed1.json  # scrub a saved game
+```
+
+### Play a game yourself
+
+foosim is built for simulation and bulk analysis, but there is a playable mode.
+`--play` hands you side 0 against the AI; `--hotseat` drives both sides on one
+screen:
+
+```bash
+uv run --extra ui foosim-ui --play             # you are side 0 — urban 4v4, generated mechs
+uv run --extra ui foosim-ui --play --skirmish  # the small fixed 2v2 board instead
+uv run --extra ui foosim-ui --hotseat          # both sides human
+```
+
+Pick one of your units in the roster, choose an action in the **Actions** panel
+(Move / Ranged / Melee / Disengage / Purge Heat), then click a hex or an enemy
+token. The panel previews the to-hit number and expected damage before you
+commit, and bolstered variants (run, charge, unleash hell, fury, …) appear as a
+toggle on the action. Use the transport bar to step back and forth or save the
+game as a replay.
+
 **Status:** early. Design is in [`PLAN.md`](PLAN.md); the mechanics spec the engine
 follows is [`RULES.md`](RULES.md). See `PLAN.md §7` for milestones.
 
@@ -37,34 +101,6 @@ follows is [`RULES.md`](RULES.md). See `PLAN.md §7` for milestones.
 Rules numbers live in [`data/rules.toml`](data/rules.toml) so rule changes are data
 edits, not code edits. The engine boundary is kept clean so the logic can back a
 fancier Godot/C# UI later — see `PLAN.md §8`.
-
-## Quick start
-
-Uses [uv](https://docs.astral.sh/uv/). Install it once:
-
-```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
-```
-
-Then, from the repo root:
-
-```bash
-uv sync --all-extras                  # create .venv (Python per .python-version) + install
-uv run pytest                         # engine tests
-
-uv run foosim-autobattle --seed 1              # headless AI vs AI
-uv run --extra ui foosim-ui --seed 3           # watch an AI game
-uv run --extra ui foosim-ui --play --random    # play side 0, randomly generated mechs
-uv run --extra ui foosim-ui --replay tests/data/replays/skirmish_2v2_seed1.json
-uv run foosim-gen-unit --seed 5                # print random mech stat blocks
-uv run foosim-analyze --games 500 --matchup greedy-vs-greedy   # bulk stats -> summary
-uv run foosim-analyze --games 500 --override heat.second_action=2 --baseline <base.csv>  # A/B a rule
-```
-
-`uv run <cmd>` runs inside the project venv without activating it; `uv sync` keeps
-it in lockstep with `uv.lock`. Drop `--all-extras` for just the engine + dev
-tools — the `ui` extra adds imgui-bundle, `analysis` adds numpy + pandas. The dev
-tools (`pytest`, `ruff`) are in the `dev` dependency group and install by default.
 
 ## Disclaimer
 
