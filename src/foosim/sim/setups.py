@@ -16,7 +16,7 @@ from foosim.engine.rules import Ruleset
 from foosim.engine.state import GameState, MapSpec, TerrainHex, Unit, WeaponInstance
 from foosim.sim.build import apply_upgrades
 
-__all__ = ["mech", "scatter_terrain", "skirmish_2v2"]
+__all__ = ["city_terrain", "mech", "scatter_terrain", "skirmish_2v2"]
 
 _TERRAIN_SALT = 0x5CA_77E4  # keeps the terrain RNG stream clear of the policy seeds
 
@@ -106,6 +106,72 @@ def scatter_terrain(
         h = candidates[i]
         i += 1
         out[h] = TerrainHex(pos=h, tags={"cover"}, height=0.5)
+
+    return out
+
+
+def _grow(seed: Hex, size: int, ok, rng: Rng) -> list[Hex]:
+    clump = [seed]
+    frontier = [seed]
+    while len(clump) < size and frontier:
+        h = frontier[rng.randint(0, len(frontier) - 1)]
+        nbrs = [n for n in hexgrid.neighbors(h) if n not in clump and ok(n)]
+        if not nbrs:
+            frontier.remove(h)
+            continue
+        pick = nbrs[rng.randint(0, len(nbrs) - 1)]
+        clump.append(pick)
+        frontier.append(pick)
+    return clump
+
+
+def city_terrain(
+    mapspec: MapSpec,
+    rng: Rng,
+    *,
+    avoid: set[Hex],
+    density: float = 0.16,
+) -> dict[Hex, TerrainHex]:
+    """A dense urban board: blocky buildings (2-6 hex footprints, LOS-blocking +
+    cover, mostly destructible), a few taller indestructible towers near the
+    middle, and a raised central plateau. Also sets ``mapspec.elevation`` on the
+    plateau (matters only under the ``center_25d`` visibility mode)."""
+    cells = mapspec.cells()
+    cx, cy = mapspec.cols // 2, mapspec.rows // 2
+    margin = 3  # keep terrain off the deploy rows
+    interior = [
+        h for h in sorted(cells)
+        if h not in avoid and margin <= hexgrid.to_offset_oddr(h)[1] < mapspec.rows - margin
+    ]
+    out: dict[Hex, TerrainHex] = {}
+
+    for h in interior:
+        col, row = hexgrid.to_offset_oddr(h)
+        d = max(abs(col - cx), abs(row - cy))
+        if d <= 2:
+            mapspec.elevation[h] = 2
+        elif d <= 4:
+            mapspec.elevation[h] = 1
+
+    rng.shuffle(interior)
+    target = int(len(interior) * density)
+    i = 0
+    while len(out) < target and i < len(interior):
+        seed_h = interior[i]
+        i += 1
+        if seed_h in out:
+            continue
+        clump = _grow(
+            seed_h, rng.randint(2, 6),
+            lambda h: h in cells and h not in avoid and h not in out, rng,
+        )
+        col, row = hexgrid.to_offset_oddr(seed_h)
+        near_middle = max(abs(col - cx), abs(row - cy)) <= 3
+        tower = near_middle and rng.d6() <= 3
+        tags = {"blocking", "cover"} | ({"indestructible"} if tower else {"destructible"})
+        height = float(rng.randint(2, 4) if tower else rng.randint(1, 3))
+        for h in clump:
+            out[h] = TerrainHex(pos=h, tags=set(tags), height=height)
 
     return out
 

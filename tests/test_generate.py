@@ -108,12 +108,18 @@ def test_combat_unit_and_random_setup():
     assert len(squad) == 4
     assert all(u.side == 0 for u in squad)
 
-    gs = random_setup(RULES, seed=5)
-    assert len(gs.units) == 4
+    gs = random_setup(RULES, seed=5)  # default 4v4
+    assert len(gs.units) == 8
+    assert sorted(u.side for u in gs.units.values()) == [0, 0, 0, 0, 1, 1, 1, 1]
     positions = [u.pos for u in gs.units.values()]
-    assert len(set(positions)) == 4
+    assert len(set(positions)) == 8
     assert all(gs.mapspec.in_bounds(p) for p in positions)
     assert not (set(gs.terrain) & set(positions))
+    assert gs.mapspec.cols >= 24 and gs.mapspec.rows >= 24  # large board
+    assert any("blocking" in t.tags for t in gs.terrain.values())
+
+    small = random_setup(RULES, seed=5, n=2, cols=16, rows=12, terrain="none")
+    assert len(small.units) == 4 and small.terrain == {}
 
 
 def test_random_setup_plays_a_full_game():

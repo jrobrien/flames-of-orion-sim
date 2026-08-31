@@ -15,7 +15,7 @@ from __future__ import annotations
 import argparse
 from dataclasses import dataclass, field
 
-from foosim.ai.policy import RandomPolicy
+from foosim.ai.policy import GreedyPolicy
 from foosim.engine.actions import (
     ActivateUnit,
     DisengageAction,
@@ -102,31 +102,35 @@ class UiState:
 # --------------------------------------------------------------------------
 
 
-def _policies(rules: Ruleset, seed: int) -> dict[int, object]:
-    return {0: RandomPolicy(rules, seed * 2 + 1), 1: RandomPolicy(rules, seed * 2 + 2)}
+def _policies(rules: Ruleset, seed: int, sides=(0, 1)) -> dict[int, object]:
+    return {sd: GreedyPolicy(rules, seed * 3 + sd) for sd in sides}
 
 
-def _setup(rules: Ruleset, seed: int, *, random: bool):
-    return random_setup(rules, seed=seed) if random else skirmish_2v2(rules, seed=seed)
+def _setup(rules: Ruleset, seed: int, *, skirmish: bool):
+    # default: a 4v4 on a large urban board with randomly generated mechs
+    return skirmish_2v2(rules, seed=seed) if skirmish else random_setup(rules, seed=seed)
 
 
-def build_watch(rules: Ruleset, seed: int, *, random: bool = False) -> UiState:
-    gs = _setup(rules, seed, random=random)
-    sess = Session(rules, gs, _policies(rules, seed))
-    tag = " random" if random else ""
-    return UiState(rules, sess, "watch", f"watch{tag} · seed {seed}")
+def build_watch(rules: Ruleset, seed: int, *, skirmish: bool = False) -> UiState:
+    gs = _setup(rules, seed, skirmish=skirmish)
+    sess = Session(rules, gs, _policies(rules, seed, gs.sides()))
+    tag = "skirmish" if skirmish else "urban 4v4"
+    return UiState(rules, sess, "watch", f"watch {tag} · seed {seed}")
 
 
-def build_play(rules: Ruleset, seed: int, *, hotseat: bool, random: bool = False) -> UiState:
-    gs = _setup(rules, seed, random=random)
+def build_play(rules: Ruleset, seed: int, *, hotseat: bool, skirmish: bool = False) -> UiState:
+    gs = _setup(rules, seed, skirmish=skirmish)
     if hotseat:
-        ctrl: dict[int, object] = {0: "human", 1: "human"}
+        ctrl: dict[int, object] = {sd: "human" for sd in gs.sides()}
     else:
-        ctrl = {0: "human", 1: RandomPolicy(rules, seed * 2 + 2)}
+        ctrl = {0: "human"}
+        for sd in gs.sides():
+            if sd != 0:
+                ctrl[sd] = GreedyPolicy(rules, seed * 3 + sd)
     sess = Session(rules, gs, ctrl)
     label = "hotseat" if hotseat else "play"
-    tag = " random" if random else ""
-    return UiState(rules, sess, label, f"{label}{tag} · seed {seed}")
+    tag = "skirmish" if skirmish else "urban 4v4"
+    return UiState(rules, sess, label, f"{label} {tag} · seed {seed}")
 
 
 def build_replay(rules: Ruleset, path: str) -> UiState:
@@ -583,8 +587,8 @@ def main(argv: list[str] | None = None) -> None:
     ap.add_argument("--replay", metavar="PATH", help="replay a saved .json")
     ap.add_argument("--play", action="store_true", help="you control side 0, AI controls side 1")
     ap.add_argument("--hotseat", action="store_true", help="both sides human")
-    ap.add_argument("--random", action="store_true",
-                    help="randomly generated combat units instead of the fixed skirmish")
+    ap.add_argument("--skirmish", action="store_true",
+                    help="the small fixed 2v2 board instead of the default urban 4v4")
     ap.add_argument("--seed", type=int, default=1)
     args = ap.parse_args(argv)
 
@@ -592,11 +596,11 @@ def main(argv: list[str] | None = None) -> None:
     if args.replay:
         ui = build_replay(rules, args.replay)
     elif args.hotseat:
-        ui = build_play(rules, args.seed, hotseat=True, random=args.random)
+        ui = build_play(rules, args.seed, hotseat=True, skirmish=args.skirmish)
     elif args.play:
-        ui = build_play(rules, args.seed, hotseat=False, random=args.random)
+        ui = build_play(rules, args.seed, hotseat=False, skirmish=args.skirmish)
     else:
-        ui = build_watch(rules, args.seed, random=args.random)
+        ui = build_watch(rules, args.seed, skirmish=args.skirmish)
 
     try:
         from imgui_bundle import hello_imgui

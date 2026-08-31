@@ -293,7 +293,9 @@ class GameState:
     end_reason: str | None = None
 
     def copy(self) -> GameState:
-        return copy.deepcopy(self)
+        # mapspec is immutable during a game - share it instead of deep-copying
+        # its (large, static) elevation / deploy-zone dicts every step.
+        return copy.deepcopy(self, {id(self.mapspec): self.mapspec})
 
     # -- convenience ----------------------------------------------------
     def unit_at(self, h: Hex) -> Unit | None:

@@ -137,9 +137,10 @@ def _los_strict(board: Board, a: Hex, b: Hex) -> LosResult:
 
 
 def _sample_points(h: Hex, frac: float) -> list[tuple[float, float]]:
+    # centre + 3 alternating corners: 4 points, 16 ray-pairs per LOS check
     cx, cy = hexgrid.to_pixel(h, 1.0)
     pts = [(cx, cy)]
-    for corner in hexgrid.corners(h, 1.0):
+    for corner in hexgrid.corners(h, 1.0)[::2]:
         pts.append((cx + (corner[0] - cx) * frac, cy + (corner[1] - cy) * frac))
     return pts
 

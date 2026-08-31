@@ -19,7 +19,7 @@ from foosim.engine.rules import Ruleset
 from foosim.engine.rules import load as load_rules
 from foosim.engine.state import GameState, MapSpec, Unit, WeaponInstance
 from foosim.sim.build import apply_upgrades
-from foosim.sim.setups import _zone_rows, scatter_terrain
+from foosim.sim.setups import _zone_rows, city_terrain, scatter_terrain
 
 __all__ = ["call_sign", "generate_combat_unit", "generate_mech", "random_setup"]
 
@@ -126,34 +126,50 @@ def generate_combat_unit(
     ]
 
 
-def random_setup(rules: Ruleset, *, seed: int, n: int = 2,
-                 supported_only: bool = True) -> GameState:
+def random_setup(
+    rules: Ruleset,
+    *,
+    seed: int,
+    n: int = 4,
+    cols: int = 30,
+    rows: int = 30,
+    terrain: str = "city",
+    supported_only: bool = True,
+) -> GameState:
+    """Two randomly generated ``n``-mech combat units on a square board. Default
+    is a 4v4 on a 30x30 urban map (matching how the game is usually played);
+    ``terrain`` is ``"city"`` (dense blocking + cover), ``"scatter"``, or ``"none"``."""
     rng = Rng.from_seed(seed ^ 0x6E_4E_5A)
-    cols, rows = 16, 12
     mapspec = MapSpec(
-        cols=cols, rows=rows, name="random_skirmish",
+        cols=cols, rows=rows, name=f"random_{terrain}",
         deploy_zones={
-            0: _zone_rows(cols, range(0, 2)),
-            1: _zone_rows(cols, range(rows - 2, rows)),
+            0: _zone_rows(cols, range(0, 3)),
+            1: _zone_rows(cols, range(rows - 3, rows)),
         },
     )
     units: dict[str, Unit] = {}
+    span = cols // (n + 1)
     for side in (0, 1):
         row = 1 if side == 0 else rows - 2
         squad = generate_combat_unit(rules, rng, side, n=n, id_prefix="AB"[side],
                                      supported_only=supported_only)
-        cols_used = list(range(2, 2 + 3 * n, 3))
-        for u, col in zip(squad, cols_used, strict=True):
-            u.pos = from_offset_oddr(col, row)
+        for k, u in enumerate(squad):
+            u.pos = from_offset_oddr(span * (k + 1), row)
             units[u.id] = u
     avoid = (
         set(mapspec.deploy_zones[0]) | set(mapspec.deploy_zones[1])
         | {u.pos for u in units.values()}
     )
-    terrain = scatter_terrain(mapspec, Rng.from_seed(seed ^ 0x5CA_77E4), avoid=avoid)
+    terr_rng = Rng.from_seed(seed ^ 0x5CA_77E4)
+    if terrain == "city":
+        terr = city_terrain(mapspec, terr_rng, avoid=avoid)
+    elif terrain == "scatter":
+        terr = scatter_terrain(mapspec, terr_rng, avoid=avoid, n_blockers=8, n_cover=12)
+    else:
+        terr = {}
     return GameState(
         mapspec=mapspec, mission="warzone", rng_state=Rng.from_seed(seed).state,
-        units=units, terrain=terrain, pass_tokens={0: 0, 1: 0}, initiative=(0, 1),
+        units=units, terrain=terr, pass_tokens={0: 0, 1: 0}, initiative=(0, 1),
     )
 
 
