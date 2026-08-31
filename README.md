@@ -52,10 +52,13 @@ Then, from the repo root:
 uv sync --all-extras                  # create .venv (Python per .python-version) + install
 uv run pytest                         # engine tests
 
-uv run foosim-autobattle --seed 1     # headless AI vs AI               (M3)
-uv run --extra ui foosim-ui --seed 3  # watch an AI game in the UI      (M5)
+uv run foosim-autobattle --seed 1              # headless AI vs AI
+uv run --extra ui foosim-ui --seed 3           # watch an AI game
+uv run --extra ui foosim-ui --play --random    # play side 0, randomly generated mechs
 uv run --extra ui foosim-ui --replay tests/data/replays/skirmish_2v2_seed1.json
-uv run foosim-analyze --games 1000    # bulk stats                      (M8, planned)
+uv run foosim-gen-unit --seed 5                # print random mech stat blocks
+uv run foosim-analyze --games 500 --matchup greedy-vs-greedy   # bulk stats -> summary
+uv run foosim-analyze --games 500 --override heat.second_action=2 --baseline <base.csv>  # A/B a rule
 ```
 
 `uv run <cmd>` runs inside the project venv without activating it; `uv sync` keeps

@@ -1,8 +1,9 @@
 """foosim desktop UI - Watch / Play / Hotseat / Replay.
 
-  uv run --extra ui foosim-ui --seed 3            # watch AI vs AI
-  uv run --extra ui foosim-ui --play --seed 3     # you are side 0, AI side 1
-  uv run --extra ui foosim-ui --hotseat --seed 3  # both sides human
+  uv run --extra ui foosim-ui --seed 3                # watch AI vs AI
+  uv run --extra ui foosim-ui --play --seed 3         # you are side 0, AI side 1
+  uv run --extra ui foosim-ui --play --random --seed 3  # + randomly generated mechs
+  uv run --extra ui foosim-ui --hotseat --seed 3      # both sides human
   uv run --extra ui foosim-ui --replay tests/data/replays/skirmish_2v2_seed1.json
 
 Layout is a hello_imgui docking space. Scrub back to review; "rewind to here"
@@ -29,6 +30,7 @@ from foosim.engine.actions import (
 from foosim.engine.rules import Ruleset
 from foosim.engine.rules import load as load_rules
 from foosim.sim import replay as replaymod
+from foosim.sim.generate import random_setup
 from foosim.sim.setups import skirmish_2v2
 from foosim.ui.camera import Camera
 from foosim.ui.interaction import SUBMODE_LABELS, SUBMODES, compute_overlay
@@ -104,21 +106,27 @@ def _policies(rules: Ruleset, seed: int) -> dict[int, object]:
     return {0: RandomPolicy(rules, seed * 2 + 1), 1: RandomPolicy(rules, seed * 2 + 2)}
 
 
-def build_watch(rules: Ruleset, seed: int) -> UiState:
-    gs = skirmish_2v2(rules, seed=seed)
+def _setup(rules: Ruleset, seed: int, *, random: bool):
+    return random_setup(rules, seed=seed) if random else skirmish_2v2(rules, seed=seed)
+
+
+def build_watch(rules: Ruleset, seed: int, *, random: bool = False) -> UiState:
+    gs = _setup(rules, seed, random=random)
     sess = Session(rules, gs, _policies(rules, seed))
-    return UiState(rules, sess, "watch", f"watch · seed {seed}")
+    tag = " random" if random else ""
+    return UiState(rules, sess, "watch", f"watch{tag} · seed {seed}")
 
 
-def build_play(rules: Ruleset, seed: int, *, hotseat: bool) -> UiState:
-    gs = skirmish_2v2(rules, seed=seed)
+def build_play(rules: Ruleset, seed: int, *, hotseat: bool, random: bool = False) -> UiState:
+    gs = _setup(rules, seed, random=random)
     if hotseat:
         ctrl: dict[int, object] = {0: "human", 1: "human"}
     else:
         ctrl = {0: "human", 1: RandomPolicy(rules, seed * 2 + 2)}
     sess = Session(rules, gs, ctrl)
     label = "hotseat" if hotseat else "play"
-    return UiState(rules, sess, label, f"{label} · seed {seed}")
+    tag = " random" if random else ""
+    return UiState(rules, sess, label, f"{label}{tag} · seed {seed}")
 
 
 def build_replay(rules: Ruleset, path: str) -> UiState:
@@ -576,6 +584,8 @@ def main(argv: list[str] | None = None) -> None:
     ap.add_argument("--replay", metavar="PATH", help="replay a saved .json")
     ap.add_argument("--play", action="store_true", help="you control side 0, AI controls side 1")
     ap.add_argument("--hotseat", action="store_true", help="both sides human")
+    ap.add_argument("--random", action="store_true",
+                    help="randomly generated combat units instead of the fixed skirmish")
     ap.add_argument("--seed", type=int, default=1)
     args = ap.parse_args(argv)
 
@@ -583,11 +593,11 @@ def main(argv: list[str] | None = None) -> None:
     if args.replay:
         ui = build_replay(rules, args.replay)
     elif args.hotseat:
-        ui = build_play(rules, args.seed, hotseat=True)
+        ui = build_play(rules, args.seed, hotseat=True, random=args.random)
     elif args.play:
-        ui = build_play(rules, args.seed, hotseat=False)
+        ui = build_play(rules, args.seed, hotseat=False, random=args.random)
     else:
-        ui = build_watch(rules, args.seed)
+        ui = build_watch(rules, args.seed, random=args.random)
 
     try:
         from imgui_bundle import hello_imgui
