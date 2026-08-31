@@ -145,7 +145,7 @@ class TerrainHex:
 @dataclass
 class MapSpec:                            # static geometry; live terrain is on GameState
     cols: int; rows: int; name: str = "untitled"
-    elevation: dict[Hex, int] = ...       # sparse ground level
+    elevation: dict[Hex, float] = ...     # sparse ground level, inches
     deploy_zones: dict[int, tuple[Hex, ...]] = ...
 
 @dataclass
@@ -447,9 +447,28 @@ seeded + never on deploy zones. **Not verified:** the imgui window itself — ru
 | `no_specialty_ammo` | **Flame Thrower** | generator/build constraint: no ammo may be assigned |
 
 Cross-cutting: **ammo depletion** (end-of-game d6 per ammo, deplete on 1–3),
-**terrain destruction** on being moved onto / taking damage (RULES §9 —
-partially in the model, not wired to resolution), and **Pilot Eject / Scrappers /
-Modded Frames / Experience** optional rules (out of scope for battle testing).
+and **Pilot Eject / Scrappers / Modded Frames / Experience** optional rules (out
+of scope for battle testing).
+
+**Terrain / movement ✅ (playtest feedback)** — terrain is now *traversable*, not a
+wall you route around:
+- `legal.step_cost(prev_h, next_h)` = `1 + max(0, climb)` (descent free); a step
+  steeper than `legal.MAX_STEP_CLIMB` (2") is impossible. `move_paths` is Dijkstra
+  over that cost (was BFS over blocker hexes). `resolve._validate_and_move` charges
+  the same float cost and rejects over-steep steps.
+- `visibility._los_multiray` is elevation-aware (2.5D): eye/target heights come
+  from `board.column_height` (ground `elevation` + live structure height); a ray
+  that clears the top of an obstruction passes, one that grazes it grants cover.
+  A sniper on a tower now sees over a wall that blocks the ground.
+- `MapSpec.elevation` is `dict[Hex, float]` (inches).
+- **Explosions raze low cover:** `resolve._raze_terrain` — destructible,
+  non-indestructible terrain in a blast radius is destroyed (+1 dmg to models
+  within 2", RULES §9 rubble). Buildings (indestructible) survive.
+- `sim/setups.city_terrain`: 2-hex **buildings** h1" `blocking+cover+indestructible`;
+  1-hex **low cover** h0.5" `cover+destructible`; stepped central **hill** via
+  `elevation` (0.5"/1"/1.5").
+- Still deferred: terrain destruction from *weapon* damage (2nd hit / ≥3 dmg),
+  end-turn "must stand on a flat level", falling damage.
 
 ### M8 — Missions + analysis harness
 
@@ -558,9 +577,9 @@ punch list for a port.
 - Whether to snapshot every step eagerly in the UI (memory ~KBs/game, fine) or
   lazily re-sim on scrub-back (cheaper, simpler cache invalidation). Default:
   eager list, capped ring buffer in Watch mode.
-- Elevation/vertical movement rules (cost, gaps, VTOL, falling) — `MapSpec` gets
-  `elevation` + terrain `height` at M2 for `center_25d`; movement rules that use
-  them are deferred to post-M9.
+- Elevation/vertical movement rules — climb cost + 2" gap limit + VTOL ignore +
+  elevation-aware multiray LOS are **done** (see "Terrain / movement" under M7c).
+  Still open: falling damage, "must end the turn on a flat level".
 - `GreedyPolicy` sophistication — keep a frozen baseline for regression; iterate a
   separate `policy_v2` so analysis runs stay comparable over time.
 

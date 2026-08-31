@@ -5,20 +5,21 @@ over 3D terrain. Centre-to-centre hex LOS is too strict for how Flames of Orion
 actually plays. This module offers pluggable models, tunable from
 ``data/rules.toml [visibility]``:
 
-``multiray_2d`` (default)
-    Sample several points across the attacker and target hexes. LOS holds if
-    *any* sightline avoids ``blocking`` terrain. Cover applies if *some*
-    sightline clips ``blocking``/``cover`` terrain or a third model (i.e. the
-    target is partially obscured).
+``multiray_2d`` (default, but 2.5D)
+    Sample several points across the attacker and target hexes and trace every
+    sightline as a 3D beam from the observer's eye to the target. A ray is
+    blocked when an intervening column - ``Board.column_height`` = ground
+    elevation + opaque structure height (a ``blocking`` building, or a bare
+    hill) - rises to or above the beam. LOS holds if *any* ray gets through;
+    cover applies if *some* ray grazes an obstacle (a building top near the
+    beam, low ``cover`` terrain, or a third model). So a mech on a tower or hill
+    sees over walls that block a mech on the ground.
 
 ``strict_center``
-    A single centre-to-centre line. Kept for comparison / debugging.
+    A single centre-to-centre line, no heights. Kept for comparison / debugging.
 
 ``center_25d``
-    Centre line with 2.5D heights: a beam from the observer's eye to the top of
-    the target, blocked when an intervening terrain column (ground elevation +
-    structure height, via ``Board.column_height``) rises above it. Experimental;
-    needs elevation data on maps (M2+).
+    Like ``multiray_2d`` but only the centre line - the crude version.
 
 ``resolve.py`` calls :func:`line_of_sight` and never re-implements this. Weapons
 that ignore LOS or cover just discard the relevant field.
@@ -168,36 +169,60 @@ def _hexes_on_segment(p: tuple[float, float], q: tuple[float, float]) -> list[He
     return out
 
 
+_GRAZE = 0.01
+_WALL_H = 2.0  # a bare 'blocking' hex (no explicit height) is a full-height wall
+
+
+def _ray_hits(board: Board, interior: list[Hex], a: Hex, b: Hex, eye_a: float,
+              eye_b: float, n_total: int, model_h: float):
+    """-> (hard_block Hex | None, grazed [Hex])."""
+    grazed: list[Hex] = []
+    for h in interior:
+        frac = hexgrid.distance(a, h) / n_total
+        beam = eye_a + (eye_b - eye_a) * frac
+        opaque = board.blocks_los(h)
+        top = board.column_height(h)
+        if opaque and top < _GRAZE:
+            top = _WALL_H
+        if opaque:
+            if top >= beam - _GRAZE:
+                return h, grazed
+        elif top >= beam + _GRAZE:  # a bare hill you truly can't see over
+            return h, grazed
+        if (opaque or board.is_cover(h) or board.has_model(h)) and top >= beam - model_h:
+            grazed.append(h)
+    return None, grazed
+
+
 def _los_multiray(board: Board, a: Hex, b: Hex, cfg: VisibilityConfig) -> LosResult:
-    if hexgrid.distance(a, b) == 1:
+    if hexgrid.distance(a, b) <= 1:
         return LosResult(True, False)
     ends = {a, b}
-    pa = _sample_points(a, cfg.sample_corner_fraction)
-    pb = _sample_points(b, cfg.sample_corner_fraction)
+    n_total = hexgrid.distance(a, b)
+    eye_a = board.column_height(a) + cfg.eye_height
+    eye_b = board.column_height(b) + cfg.model_height  # can see any part of the target
     any_clear = False
     obscured = False
     cover_src: set[Hex] = set()
     blocked_example: Hex | None = None
-    for p in pa:
-        for q in pb:
+    for p in _sample_points(a, cfg.sample_corner_fraction):
+        for q in _sample_points(b, cfg.sample_corner_fraction):
             interior = [h for h in _hexes_on_segment(p, q) if h not in ends]
-            hard = [h for h in interior if board.blocks_los(h)]
-            if hard:
-                blocked_example = blocked_example or hard[0]
-                cover_src.update(hard)
+            hard, grazed = _ray_hits(board, interior, a, b, eye_a, eye_b, n_total,
+                                     cfg.model_height)
+            if hard is not None:
+                blocked_example = blocked_example or hard
+                cover_src.add(hard)
                 obscured = True
                 continue
             any_clear = True
-            soft = [h for h in interior if board.is_cover(h) or board.has_model(h)]
-            if soft:
+            if grazed:
                 obscured = True
-                cover_src.update(soft)
+                cover_src.update(grazed)
     if not any_clear:
-        centre_block = [
-            h for h in hexgrid.line(a, b) if h not in ends and board.blocks_los(h)
-        ]
-        first = centre_block[0] if centre_block else blocked_example
-        return LosResult(False, False, blocked_by=first)
+        centre = [h for h in hexgrid.line(a, b) if h not in ends]
+        c_hard, _ = _ray_hits(board, centre, a, b, eye_a, eye_b, n_total, cfg.model_height)
+        return LosResult(False, False, blocked_by=c_hard or blocked_example)
     return LosResult(True, obscured, cover_sources=tuple(sorted(cover_src)))
 
 

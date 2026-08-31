@@ -130,12 +130,18 @@ def city_terrain(
     rng: Rng,
     *,
     avoid: set[Hex],
-    density: float = 0.16,
+    building_frac: float = 0.09,
+    cover_frac: float = 0.05,
 ) -> dict[Hex, TerrainHex]:
-    """A dense urban board: blocky buildings (2-6 hex footprints, LOS-blocking +
-    cover, mostly destructible), a few taller indestructible towers near the
-    middle, and a raised central plateau. Also sets ``mapspec.elevation`` on the
-    plateau (matters only under the ``center_25d`` visibility mode)."""
+    """A dense urban board. Terrain kinds:
+
+    * **buildings** - 2-hex footprints, height 1", ``blocking`` + ``cover`` +
+      ``indestructible``; mechs traverse *over* them (climb cost 1").
+    * **low cover** - 1 hex, height 0.5", ``cover`` + ``destructible`` (only
+      explosions raze it); does not block LOS.
+    * a stepped central **hill** via ``mapspec.elevation`` (0.5" outer, 1"
+      inner, 1.5" peak) - indestructible ground you stand on and see over.
+    """
     cells = mapspec.cells()
     cx, cy = mapspec.cols // 2, mapspec.rows // 2
     margin = 3  # keep terrain off the deploy rows
@@ -145,33 +151,41 @@ def city_terrain(
     ]
     out: dict[Hex, TerrainHex] = {}
 
+    # stepped hill in the middle
     for h in interior:
         col, row = hexgrid.to_offset_oddr(h)
         d = max(abs(col - cx), abs(row - cy))
-        if d <= 2:
-            mapspec.elevation[h] = 2
-        elif d <= 4:
-            mapspec.elevation[h] = 1
+        if d <= 1:
+            mapspec.elevation[h] = 1.5
+        elif d <= 3:
+            mapspec.elevation[h] = 1.0
+        elif d <= 5:
+            mapspec.elevation[h] = 0.5
 
     rng.shuffle(interior)
-    target = int(len(interior) * density)
     i = 0
-    while len(out) < target and i < len(interior):
-        seed_h = interior[i]
+
+    def free(h: Hex) -> bool:
+        return h in cells and h not in avoid and h not in out
+
+    n_buildings = int(len(interior) * building_frac / 2)  # 2 hexes each
+    for _ in range(n_buildings):
+        while i < len(interior) and not free(interior[i]):
+            i += 1
+        if i >= len(interior):
+            break
+        clump = _grow(interior[i], 2, free, rng)
         i += 1
-        if seed_h in out:
-            continue
-        clump = _grow(
-            seed_h, rng.randint(2, 6),
-            lambda h: h in cells and h not in avoid and h not in out, rng,
-        )
-        col, row = hexgrid.to_offset_oddr(seed_h)
-        near_middle = max(abs(col - cx), abs(row - cy)) <= 3
-        tower = near_middle and rng.d6() <= 3
-        tags = {"blocking", "cover"} | ({"indestructible"} if tower else {"destructible"})
-        height = float(rng.randint(2, 4) if tower else rng.randint(1, 3))
         for h in clump:
-            out[h] = TerrainHex(pos=h, tags=set(tags), height=height)
+            out[h] = TerrainHex(pos=h, tags={"blocking", "cover", "indestructible"}, height=1.0)
+
+    for _ in range(int(len(interior) * cover_frac)):
+        while i < len(interior) and not free(interior[i]):
+            i += 1
+        if i >= len(interior):
+            break
+        out[interior[i]] = TerrainHex(pos=interior[i], tags={"cover", "destructible"}, height=0.5)
+        i += 1
 
     return out
 

@@ -221,7 +221,7 @@ class MapSpec:
     cols: int
     rows: int
     name: str = "untitled"
-    elevation: dict[Hex, int] = field(default_factory=dict)  # sparse; absent -> 0
+    elevation: dict[Hex, float] = field(default_factory=dict)  # inches; sparse, absent -> 0
     deploy_zones: dict[int, tuple[Hex, ...]] = field(default_factory=dict)
 
     def cells(self) -> set[Hex]:
@@ -255,7 +255,7 @@ class MapSpec:
             cols=int(d["cols"]),
             rows=int(d["rows"]),
             name=d.get("name", "untitled"),
-            elevation={_l2h(k): int(v) for k, v in d.get("elevation", [])},
+            elevation={_l2h(k): float(v) for k, v in d.get("elevation", [])},
             deploy_zones={
                 int(side): tuple(_l2h(h) for h in hexes)
                 for side, hexes in d.get("deploy_zones", {}).items()

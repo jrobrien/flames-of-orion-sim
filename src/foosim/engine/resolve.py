@@ -14,7 +14,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-from foosim.engine import hexgrid
+from foosim.engine import hexgrid, legal
 from foosim.engine.actions import (
     DisengageAction,
     IllegalAction,
@@ -71,19 +71,25 @@ def _apply_action(s: GameState, action, rules, rng: Rng, ev: list[Event]) -> Non
 def _validate_and_move(s, u, path, *, budget, ev, kind) -> None:
     if not path or path[0] != u.pos:
         raise IllegalAction("path must start at the unit's position")
-    if len(path) - 1 > budget:
-        raise IllegalAction(f"path length {len(path) - 1} exceeds budget {budget}")
+    flying = u.ignores_terrain_on_move
+    total = 0.0
     for prev, nxt in zip(path[:-1], path[1:], strict=True):
         if hexgrid.distance(prev, nxt) != 1:
             raise IllegalAction("non-adjacent step in path")
         if not s.mapspec.in_bounds(nxt):
             raise IllegalAction("path leaves the board")
-        tt = s.terrain.get(nxt)
-        if tt and not tt.destroyed and "blocking" in tt.tags and not u.ignores_terrain_on_move:
-            raise IllegalAction("path crosses blocking terrain")
         occ = s.unit_at(nxt)
         if occ and occ.id != u.id and occ.side != u.side:
             raise IllegalAction("path crosses an enemy")
+        if flying:
+            total += 1.0
+        else:
+            hp, hn = s.column_height(prev), s.column_height(nxt)
+            if abs(hn - hp) > legal.MAX_STEP_CLIMB:
+                raise IllegalAction(f'step of {abs(hn - hp):.1f}" is too steep (max 2")')
+            total += legal.step_cost(hp, hn)
+    if total > budget + 1e-9:
+        raise IllegalAction(f"path costs {total:.1f}, budget {budget}")
     dest = path[-1]
     occ = s.unit_at(dest)
     if occ and occ.id != u.id:
@@ -94,7 +100,7 @@ def _validate_and_move(s, u, path, *, budget, ev, kind) -> None:
     emit(
         s, ev, "move",
         unit=u.id, to=[dest.q, dest.r],
-        path=[[h.q, h.r] for h in path], cost=len(path) - 1, kind=kind,
+        path=[[h.q, h.r] for h in path], cost=round(total, 2), kind=kind,
     )
 
 
@@ -627,11 +633,33 @@ def _explode_check(s, u: Unit, rng, rules, ev, *, cause: str, credited_to=None) 
         and hexgrid.distance(u.pos, o.pos) <= radius
         and line_of_sight(s, u.pos, o.pos, _BLAST_CFG).los
     ]
-    emit(s, ev, "explosion", unit=u.id, damage=dmg, radius=radius, affected=affected)
+    # destructible terrain (low cover) in the blast is levelled
+    razed = [
+        h for h, t in s.terrain.items()
+        if not t.destroyed and "destructible" in t.tags and "indestructible" not in t.tags
+        and hexgrid.distance(u.pos, h) <= radius
+        and line_of_sight(s, u.pos, h, _BLAST_CFG).los
+    ]
+    emit(s, ev, "explosion", unit=u.id, damage=dmg, radius=radius, affected=affected,
+         terrain_razed=[[h.q, h.r] for h in razed])
     _out_of_action(s, u, ev, cause=cause)  # remove before chaining so it can't re-trigger
     for oid in affected:
         _apply_damage(s, s.units[oid], dmg, ap=0, cover=False, rules=rules, rng=rng, ev=ev,
                       source=credited_to or u.id)
+    for h in razed:
+        _raze_terrain(s, h, ev, rules, rng, source=credited_to or u.id)
+
+
+def _raze_terrain(s, h, ev, rules, rng, *, source) -> None:
+    t = s.terrain.get(h)
+    if t is None or t.destroyed:
+        return
+    t.destroyed = True
+    emit(s, ev, "terrain_destroyed", pos=[h.q, h.r])
+    # RULES p.20: 1 damage to every model within 2" of the rubble
+    for o in list(s.units.values()):
+        if not o.out_of_action and hexgrid.distance(h, o.pos) <= rules.inches_to_hexes(2):
+            _apply_damage(s, o, 1, ap=0, cover=False, rules=rules, rng=rng, ev=ev, source=source)
 
 
 # --------------------------------------------------------------------------

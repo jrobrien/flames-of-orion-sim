@@ -31,9 +31,9 @@ tape measure are marked **[ADAPT]** and are all tunable in `data/rules.toml`.
 | Speed `S` | move up to `S` hexes |
 | Explosion radius = current HEAT | that many hexes |
 | Terrain polygons | **[ADAPT]** snapped to whole hexes, each tagged `blocking` / `cover` / `destructible` (any combination). A polygon-accurate continuous mode is a later option (see PLAN "porting to Godot"). |
-| Line of sight & cover | **[ADAPT]** pluggable — see [§5.1](#51-line-of-sight--cover-model-sim). Default is a multi-ray sample between the two hexes (LOS if *any* sightline is clear; cover if *some* sightline is obscured), not a single centre-to-centre line. |
+| Line of sight & cover | **[ADAPT]** pluggable — see [§5.1](#51-line-of-sight--cover-model-sim). Default is a multi-ray sample between the two hexes (LOS if *any* sightline is clear; cover if *some* sightline is obscured), not a single centre-to-centre line. The default is now elevation-aware: eye/target heights come from `Board.column_height` (ground `elevation` + live structure height), so high ground / rooftops see over walls. |
 | Facing | tracked as 0–5 (hex directions) for future rules / graphics. **No combat effect** in v1 (LOS is 360°). |
-| Elevation / vertical move / gaps > 2" / falling | **[ADAPT]** v1 maps are flat; `elevation:int` per hex is in the schema but ignored by movement. Falling / vertical cost = TODO (v2). |
+| Elevation / vertical move | **[ADAPT]** `elevation:float` (inches) per hex + terrain `height`. Move onto a hex costs `1 + vertical climb` (descending is free); a step that climbs or drops more than 2" is impossible (VTOL / `ignores_terrain_on_move` ignores heights). Terrain is crossed *over* (roofs, hilltops), never through. Falling damage / "must end on a flat level" = TODO. |
 | Bolstered attacks "resolve at once" | modelled as: roll every sub-attack, collect damage, then apply saves/effects; cross-attack bonuses apply only after all sub-attacks (p.58 FAQ). |
 | One model per hex | enforced. Move *through* friendly-occupied hexes allowed; may not end there; may not move through enemy-occupied hexes. |
 | Mech moving over Infantry (d6 1–3 → flatten) | **[ADAPT]** checked per enemy Infantry hex entered during a Move. |
@@ -192,18 +192,18 @@ strategy**, selected by `data/rules.toml [visibility] mode`:
 
 | mode | how | use |
 |---|---|---|
-| **`multiray_2d`** *(default)* | sample a spread of points across the attacker hex and the target hex (`sample_corner_fraction` controls the spread); trace every sightline. **LOS** = at least one line avoids `blocking` terrain. **Cover** = at least one line clips `blocking`/`cover` terrain or a third model (target partially obscured). | day-to-day; approximates "any part of the model" + "partially obscured → cover" without needing elevation data |
-| **`strict_center`** | one centre-to-centre line | comparison / debugging / other-game feel |
-| **`center_25d`** | centre line as a 3D beam from observer eye (`eye_height` above its hex column) to the top of the target; blocked when an intervening column (`Board.column_height` = ground elevation + structure height) rises above the beam; grazing an obstacle → cover | **experimental.** Needs elevation + structure-height data on maps (schema lands M2; real maps + validation later). This is the path to "high ground sees more". |
+| **`multiray_2d`** *(default, 2.5D)* | sample a spread of points across the attacker hex and the target hex (`sample_corner_fraction` controls the spread); trace every sightline as a 3D beam from the observer's eye (`eye_height` above its `Board.column_height`) to the target (`model_height` above its column). **LOS** = at least one line clears the top of every intervening column. **Cover** = at least one clear line still grazes `blocking`/`cover` terrain or a third model (target partially obscured). A model on high ground / a rooftop sees over walls the ground can't. | day-to-day |
+| **`strict_center`** | one centre-to-centre line, 2D (heights ignored) | comparison / debugging / other-game feel |
+| **`center_25d`** | the crude single-line version of the beam model above | experimental / comparison |
 
 `resolve.py` only ever calls `visibility.line_of_sight(board, a, b, cfg)` and reads
 `.los` / `.cover` / `.blocked_by`. Weapons that ignore LOS (A.I. Missile System)
 or cover just discard the field. Tuning `sample_corner_fraction` up makes units
 "see around corners" more; this is a deliberate knob for playtesting.
 
-**Still open:** exact `center_25d` semantics, where map elevation/structure-height
-data comes from, and hand-validation against a few tabletop situations. Tracked in
-§18 and `PLAN.md §10`.
+**Still open:** hand-validation of the elevation-aware default against a few real
+tabletop situations, and tuning `sample_corner_fraction` / `eye_height`. Tracked
+in §18 and `PLAN.md §10`.
 
 ---
 
@@ -478,11 +478,12 @@ with only a single Mech from your unit).
 ## 18. Open questions / TODO for the sim
 
 - **[ADAPT]** LOS + cover — approach decided (§5.1: pluggable, default
-  `multiray_2d`). Remaining: nail down `center_25d` semantics, decide where map
-  elevation / structure-height data lives (M2 schema), hand-validate the default
-  against a handful of real tabletop situations, and tune `sample_corner_fraction`.
+  `multiray_2d`, now elevation-aware). Remaining: hand-validate against a handful
+  of real tabletop situations, and tune `sample_corner_fraction` / `eye_height`.
 - **[ADAPT]** "hits the obscuring model/terrain on a miss" — defer to v2.
-- **[ADAPT]** elevation, vertical move cost, gaps, VTOL gap-ignore, fall damage.
+- **[ADAPT]** elevation + vertical move cost + 2" gap limit + VTOL gap-ignore are
+  **done** (§4 movement, §5.1 LOS). Remaining: fall damage, "must end on a flat
+  level", terrain destroyed by weapon fire (only explosions raze it so far).
 - Cable Whip full text (Engagement interaction, forced move) — approximate now,
   revisit with the paid edition if acquired.
 - Whip-cable + Disengage interaction (p.58) is fiddly — note in code.

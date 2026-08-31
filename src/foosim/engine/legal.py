@@ -7,6 +7,8 @@ not the authority.
 
 from __future__ import annotations
 
+from heapq import heappop, heappush
+
 from foosim.engine import hexgrid
 from foosim.engine.actions import (
     DisengageAction,
@@ -18,7 +20,12 @@ from foosim.engine.actions import (
 from foosim.engine.hexgrid import Hex
 from foosim.engine.visibility import VisibilityConfig, line_of_sight
 
-__all__ = ["is_engaged", "legal_actions", "move_budget", "move_paths"]
+__all__ = [
+    "MAX_STEP_CLIMB", "is_engaged", "legal_actions", "move_budget", "move_paths", "step_cost",
+]
+
+# can't climb up / drop down more than 2" in one hex step (RULES: gaps > 2")
+MAX_STEP_CLIMB = 2.0
 
 
 def move_budget(unit) -> int:
@@ -37,38 +44,57 @@ def is_engaged(state, unit) -> bool:
     )
 
 
-def _move_blockers(state, unit) -> set[Hex]:
-    blocked: set[Hex] = set()
-    if not unit.ignores_terrain_on_move:
-        for h, t in state.terrain.items():
-            if not t.destroyed and "blocking" in t.tags:
-                blocked.add(h)
-    for other in state.units.values():
-        if other.id != unit.id and not other.out_of_action and other.side != unit.side:
-            blocked.add(other.pos)
-    return blocked
+def _enemy_hexes(state, unit) -> set[Hex]:
+    return {
+        o.pos for o in state.units.values()
+        if o.id != unit.id and not o.out_of_action and o.side != unit.side
+    }
 
 
-def move_paths(state, unit, *, budget: int) -> dict[Hex, list[Hex]]:
-    """dest hex -> path (list of adjacent hexes, ``unit.pos`` first). May pass
-    through friendly-occupied hexes but not end on any occupied hex."""
+def step_cost(prev_h: float, next_h: float) -> float:
+    """Move cost to step onto an adjacent hex: 1 + the vertical climb (descending
+    is free). Terrain is traversed *over* (roofs, hilltops), never through."""
+    return 1.0 + max(0.0, next_h - prev_h)
+
+
+def move_paths(state, unit, *, budget: float) -> dict[Hex, list[Hex]]:
+    """dest hex -> path (adjacent hexes, ``unit.pos`` first). Dijkstra over the
+    board: terrain is passable but climbing a building / hill costs its height;
+    a step steeper than ``MAX_STEP_CLIMB`` is impossible (VTOL/aircraft ignore
+    heights). May pass through friendly-occupied hexes, not end on any."""
     start = unit.pos
-    blocked = _move_blockers(state, unit)
+    flying = unit.ignores_terrain_on_move
+    enemies = _enemy_hexes(state, unit)
+    hcache: dict[Hex, float] = {}
+
+    def h_at(h: Hex) -> float:
+        if flying:
+            return 0.0
+        v = hcache.get(h)
+        if v is None:
+            v = state.column_height(h)
+            hcache[h] = v
+        return v
+
+    best: dict[Hex, float] = {start: 0.0}
     came: dict[Hex, Hex | None] = {start: None}
-    dist = {start: 0}
-    frontier = [start]
+    frontier: list[tuple[float, Hex]] = [(0.0, start)]
     while frontier:
-        nxt: list[Hex] = []
-        for h in frontier:
-            if dist[h] >= budget:
+        c, h = heappop(frontier)
+        if c > best.get(h, 1e18):
+            continue
+        hh = h_at(h)
+        for nb in hexgrid.neighbors(h):
+            if nb in enemies or not state.mapspec.in_bounds(nb):
                 continue
-            for nb in hexgrid.neighbors(h):
-                if nb in came or nb in blocked or not state.mapspec.in_bounds(nb):
-                    continue
+            nbh = h_at(nb)
+            if not flying and abs(nbh - hh) > MAX_STEP_CLIMB:
+                continue
+            nc = c + (1.0 if flying else step_cost(hh, nbh))
+            if nc <= budget + 1e-9 and nc < best.get(nb, 1e18):
+                best[nb] = nc
                 came[nb] = h
-                dist[nb] = dist[h] + 1
-                nxt.append(nb)
-        frontier = nxt
+                heappush(frontier, (nc, nb))
 
     out: dict[Hex, list[Hex]] = {}
     for h in came:
