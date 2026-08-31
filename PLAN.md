@@ -380,11 +380,42 @@ seeded + never on deploy zones. **Not verified:** the imgui window itself — ru
   chosen destination; ram shows fixed 1d3/1d3; Purge has separate
   "purge heat" / "reboot" buttons. Sub-mode resets to standard per action.
 
-### M7 — Full content + generators
-Wire every weapon/ammo/upgrade/frame via `engine/effects.py` registry + data.
-`sim/generate.py` random Mech + legal 4-Mech Combat Unit (PF slots, cost, ammo,
-call sign). `ai/policy.GreedyPolicy`.
-**Done when:** content-coverage test passes; `foosim gen-unit` emits a legal unit.
+### M7 — Full content + generators  *(in progress)*
+
+**M7a ✅ — foundation + high-value specials**
+- `sim/build.apply_upgrades()` bakes upgrade `effect` dicts into `Unit` stats at
+  build time; `mech()` / generator call it.
+- **CS/AR sign convention** written down in `RULES.md` (target-number space,
+  + = harder). Fixed `rules.toml` where it was inverted (Targeting System,
+  Thermal Imaging, catastrophic "Targeting System Disrupted").
+- **Cover/AP bug fixed** (separate commit): both were inverted in armor saves;
+  QR p.61 is explicit they modify the AR *roll* — cover +1 (helps), AP −1.
+- Specials wired: Flame Thrower target-heat, Heavy Weapon half-speed
+  (`legal.move_budget`), Hellfire +1 dmg, Lance moved-bonus, Energy Sword
+  crit-on-5, Thermal Imaging, Camouflage `active_camo` status. `plan_attack`
+  mirrors all of it.
+- `test_content_coverage.py` — every `special`/`effect` token in `rules.toml` is
+  `HANDLED` or explicitly `DEFERRED`; a new unclassified token fails the suite.
+
+**M7b ✅ — generator**
+- `sim/generate.py`: `generate_mech` (d6 frame → fill PF slots with d8 weapons /
+  d20 upgrades, PF cost honoured incl. Heavy Weapon 2 / Extra Platforms +1,
+  ammo on some ranged, d66 call sign), `generate_combat_unit`, `random_setup`.
+  `foosim-gen-unit` CLI; `foosim-autobattle --random`.
+
+**M7c — remaining (not started):**
+- `ai/policy.GreedyPolicy` — move toward the enemy, fire the best weapon, bolster
+  until an overheat margin, purge when hot, disengage if outgunned. Unblocks
+  meaningful M8 analysis.
+- The `DEFERRED` specials in `test_content_coverage.py`: Rail line attack, LMB
+  splash, Electric Field AoE + pushes (piston / concussive), Cable Whip reach,
+  Power Weapon / Energy Sword burnout, action-upgrades (Self Destruct, Up-Link,
+  Virus Program, Defense Array, Camouflage *action*), ammo (EMF / Concussive /
+  Rapid Fire / Tracer), Counter Missiles.
+- `snap_shot` Move sub-mode (engine currently accepts it as a no-op).
+
+**Done when:** content-coverage test's `DEFERRED` set is empty; a real
+`GreedyPolicy` beats `RandomPolicy` head-to-head over N games.
 
 ### M8 — Missions + analysis dashboard
 `sim/missions.py` pluggable objectives (all 6 + special objectives as optional
