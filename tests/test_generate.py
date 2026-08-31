@@ -92,7 +92,8 @@ def test_effects_classification_covers_generated_content():
     # sanity: the frozensets aren't empty / mislabelled
     assert DEFERRED_SPECIALS and DEFERRED_UPGRADE_EFFECTS
     assert weapon_supported(RULES.weapon("medium_weapon"))
-    assert not weapon_supported(RULES.weapon("rail_weapon"))
+    assert weapon_supported(RULES.weapon("rail_weapon"))  # line_attack now resolved
+    assert not weapon_supported(RULES.weapon("large_missile_battery"))  # splash_2in deferred
     assert upgrade_supported(RULES.upgrade("thrusters"))
     assert not upgrade_supported(RULES.upgrade("virus_program"))
 

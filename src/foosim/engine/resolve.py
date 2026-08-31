@@ -11,6 +11,7 @@ Explode); weapon/upgrade/ammo "special" behaviours are marked ``TODO(m7)``.
 
 from __future__ import annotations
 
+import math
 import re
 from dataclasses import dataclass
 
@@ -32,6 +33,7 @@ from foosim.engine.visibility import VisibilityConfig, line_of_sight
 __all__ = ["AttackPlan", "apply", "plan_attack"]
 
 _BLAST_CFG = VisibilityConfig(mode="strict_center")
+_RAIL_SELF_HEAT = 1  # `self_heat_1_on_use` - Rail Weapon heats its own firer
 
 
 # --------------------------------------------------------------------------
@@ -252,6 +254,11 @@ def _do_ranged(s, a: RangedAttackAction, rules, rng, ev) -> None:
     for i in _indices_for(u, a, "ranged", a.bolster == "unleash_hell"):
         w = u.weapons[i]
         wspec = rules.weapon(w.weapon_id)
+        if "line_attack" in set(wspec.get("special", [])):
+            _resolve_rail(s, u, t, w, wspec, rules, rng, ev)
+            if t.out_of_action:
+                break
+            continue
         tn, cover, long_range, reason = _effective_to_hit(
             s, u, t, wspec, rules, kind="ranged", bolster=a.bolster
         )
@@ -261,6 +268,64 @@ def _do_ranged(s, a: RangedAttackAction, rules, rng, ev) -> None:
                         long_range=long_range)
         if t.out_of_action:
             break
+
+
+def _resolve_rail(s, u, t_initial, weap: WeaponInstance, wspec, rules, rng, ev) -> None:
+    """Rail Weapon (``line_attack``): one attack from the firer *through* the aim
+    point, continuing until the shot leaves the board or meets indestructible
+    terrain. Every model on the line - friend or foe (``hits_friendlies``) - and
+    every destructible-terrain hex takes a hit. LOS is needed only to the initial
+    target (``los_initial_target_only``); Long Range is checked per hit roll; the
+    firer gains ``+1`` HEAT (``self_heat_1_on_use``)."""
+    th = rules.to_hit
+    specials = set(wspec.get("special", []))
+    dist0 = hexgrid.distance(u.pos, t_initial.pos)
+    mr = wspec.get("max_range_inches")
+    if mr is not None and dist0 > rules.inches_to_hexes(mr):
+        raise IllegalAction("target out of weapon range")
+    los0 = line_of_sight(s, u.pos, t_initial.pos, _vis_cfg(rules))
+    if not los0.los:
+        raise IllegalAction("no line of sight to target")
+
+    # extend the sightline past the aim point along the same ray
+    fx, fy = hexgrid.to_pixel(u.pos)
+    tx, ty = hexgrid.to_pixel(t_initial.pos)
+    vx, vy = tx - fx, ty - fy
+    reach = 100.0 / (math.hypot(vx, vy) or 1.0)
+    far = hexgrid.from_pixel(fx + vx * reach, fy + vy * reach)
+    lane: list = []
+    for h in hexgrid.line(u.pos, far)[1:]:
+        if not s.mapspec.in_bounds(h):
+            break
+        lane.append(h)
+    if t_initial.pos not in lane:  # hex rounding fell off the ray - use the direct segment
+        lane = [h for h in hexgrid.line(u.pos, t_initial.pos)[1:] if s.mapspec.in_bounds(h)]
+
+    weap.used_this_turn = True
+    emit(s, ev, "rail_shot", unit=u.id, weapon=weap.weapon_id,
+         aim=[t_initial.pos.q, t_initial.pos.r], path=[[h.q, h.r] for h in lane])
+    ignores_lr = (
+        "ignores_long_range_penalty" in specials or "long_range_targeting" in u.upgrades
+    )
+    for h in lane:
+        terr = s.terrain.get(h)
+        solid = terr is not None and not terr.destroyed
+        if solid and "indestructible" in terr.tags:  # blocked_by_indestructible
+            emit(s, ev, "rail_blocked", unit=u.id, pos=[h.q, h.r])
+            break
+        occ = s.unit_at(h)
+        if occ is not None and not occ.out_of_action:
+            is_initial = occ.id == t_initial.id
+            cover = bool(los0.cover) if is_initial else False
+            d = hexgrid.distance(u.pos, occ.pos)
+            lr = d > rules.inches_to_hexes(th["long_range_inches"])
+            tn = u.stat("cs") + (th["long_range_cs_penalty"] if (lr and not ignores_lr) else 0)
+            _resolve_attack(s, u, occ, weap, wspec, rules, rng, ev,
+                            tn=tn, cover=cover, kind="ranged", long_range=lr)
+        if solid and "destructible" in terr.tags and "indestructible" not in terr.tags:
+            _raze_terrain(s, h, ev, rules, rng, source=u.id)
+    # +1 HEAT once the slug is downrange (may itself overheat the firer)
+    _gain_heat(s, u, _RAIL_SELF_HEAT, "rail_weapon", ev, rng, rules)
 
 
 def _do_melee(s, a: MeleeAttackAction, rules, rng, ev) -> None:

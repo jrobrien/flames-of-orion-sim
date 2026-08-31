@@ -334,7 +334,7 @@ end-of-activation HEAT. Cross-attack benefits do not apply mid-sequence (p.58).
 | 2 | Light Weapon | 1 | 1 | — |
 | 3 | Medium Weapon | 2 | 1 | — |
 | 4 | Heavy Weapon | 4 | 2 | if fired this turn, equipped model may only Move at ½ speed |
-| 5 | Rail Weapon | d3 | 1 | pick a point; line from firer to point; one attack vs **each** model & destructible terrain on the line (**hits friendlies**); `+1` HEAT on use; needs LOS only to the initial target/terrain; blocked by indestructible terrain |
+| 5 | Rail Weapon | d3 | 1 | pick a point; line from the firer **through** that point, continuing until it leaves the board or meets indestructible terrain; one attack vs **each** model & destructible terrain on the line (**hits friendlies**); `+1` HEAT on use; needs LOS only to the initial target/terrain; blocked by indestructible terrain. **[ADAPT]** the sim aims at a targeted model (the "point"); cover applies only to that initial target. |
 | 6 | A.I. Missile System | 1 | 1 | max range 20"; **ignores LOS**; ignores cover bonus |
 | 7 | Long Range Systems | 2 | 1 | **AP**; ignores the −1 Long Range penalty |
 | 8 | Large Missile Battery | d2 | 1 | on a target, also roll to hit vs all models & terrain within 2" of it (splash) |
@@ -466,7 +466,9 @@ with only a single Mech from your unit).
 - Large Missile Battery splash: cover only if it sits between original and splash
   target.
 - Rail Weapon checks Long Range per hit roll; needs LOS only to the initial
-  target/terrain; cannot pass through indestructible terrain.
+  target/terrain; cannot pass through indestructible terrain. In the sim the line
+  runs firer → aimed model → onward to the board edge; destructible terrain on the
+  line is levelled (rubble = 1 dmg within 2", §9).
 - Cannot fire ranged weapons while Engaged — Disengage first.
 - Position Compromised does not stack.
 - AR "always saves on a natural 6" regardless of AP (QR p.60).

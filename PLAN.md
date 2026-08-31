@@ -409,6 +409,16 @@ seeded + never on deploy zones. **Not verified:** the imgui window itself — ru
   so random mechs never carry inert equipment. `--full` opts into the whole
   table.
 
+**Rail Weapon ✅ (playtest feedback)** — `resolve._resolve_rail`: a `line_attack`
+from the firer *through* the aimed model, on to the board edge, stopping at
+indestructible terrain (`blocked_by_indestructible`). One hit roll (Long Range
+checked per roll) vs every model on the line, friend or foe (`hits_friendlies`),
+and every destructible-terrain hex (levelled via `_raze_terrain`). LOS needed only
+to the initial target (`los_initial_target_only`); cover applies only there. Firer
+gains `+1` HEAT (`self_heat_1_on_use`), which can overheat it. `rail_shot` /
+`rail_blocked` events; UI draws the beam. All 5 tokens now `HANDLED` in
+`effects.py`, so the generator can roll it.
+
 **M7c ✅ (partial) — GreedyPolicy + snap_shot + LOS perf**
 - `ai/policy.GreedyPolicy` — score every legal option via `plan_attack`
   (approach / best weapon / bolster to a HEAT margin / purge hot / disengage
@@ -427,7 +437,6 @@ seeded + never on deploy zones. **Not verified:** the imgui window itself — ru
 
 | special / effect | weapon / upgrade / ammo | behaviour to implement |
 |---|---|---|
-| `line_attack`, `self_heat_1_on_use`, `hits_friendlies`, `los_initial_target_only`, `blocked_by_indestructible` | **Rail Weapon** | pick a point; one attack vs every model & destructible terrain on the line (hits friendlies); +1 HEAT on use; LOS only to the initial target; cannot pass indestructible terrain |
 | `splash_2in` | **Large Missile Battery** | after the main hit, also roll to hit every model & terrain within 2" of the target |
 | `hits_all_within_2in`, `push_1in` | **Electric Field** | attack all other models within 2"; each hit takes 1 dmg and is pushed 1" |
 | `push_target_1in_on_hit` | **Piston Gauntlet** | on hit, may move the target 1" directly away |

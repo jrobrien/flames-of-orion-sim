@@ -33,13 +33,13 @@ HANDLED_SPECIALS = frozenset({
     "plus1_damage",
     "plus2_damage_and_ap_if_moved",
     "crit_on_5plus",
+    # Rail Weapon - resolve._resolve_rail
+    "line_attack", "self_heat_1_on_use", "hits_friendlies",
+    "los_initial_target_only", "blocked_by_indestructible",
 })
 
 # not yet implemented - the M7c backlog
 DEFERRED_SPECIALS = frozenset({
-    # Rail Weapon
-    "line_attack", "self_heat_1_on_use", "hits_friendlies",
-    "los_initial_target_only", "blocked_by_indestructible",
     "splash_2in",                      # Large Missile Battery
     "engagement_range_3in",            # Cable Whip
     "burnout_on_1_lose_ap",            # Power Weapon

@@ -267,6 +267,13 @@ def draw_frame_annotations(state, cam: Camera, origin: tuple[float, float], even
             frm, tgt = d.get("from_hex"), state.units.get(d.get("target"))
             if frm and tgt:
                 _arrow(dl, cen(Hex(*frm)), cen(tgt.pos), _col(_ANNO_HIT), 2.0)
+        elif e.kind == "rail_shot":
+            u = state.units.get(d.get("unit"))
+            path = d.get("path") or []
+            if u and path:
+                pts = [cen(u.pos)] + [cen(Hex(q, r)) for q, r in path]
+                for a, b in zip(pts[:-1], pts[1:], strict=True):
+                    dl.add_line(a, b, _col(_ANNO_CRIT), 2.5)
         elif e.kind == "explosion":
             u = state.units.get(d.get("unit"))
             if u:
