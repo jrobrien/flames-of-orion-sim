@@ -16,7 +16,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from foosim.engine import phases
-from foosim.engine.actions import IllegalAction
+from foosim.engine.actions import IllegalAction, decision_to_dict
 from foosim.engine.events import Event
 from foosim.engine.state import GameState
 from foosim.ui.timeline import Frame
@@ -108,9 +108,9 @@ class Session:
         return False
 
     # -- simulation --------------------------------------------------
-    def _append(self, state: GameState, events: list[Event]) -> None:
+    def _append(self, state: GameState, events: list[Event], decision: dict | None = None) -> None:
         self._live = state
-        self._frames.append(Frame(len(self._frames), state, list(events)))
+        self._frames.append(Frame(len(self._frames), state, list(events), decision))
         self.cursor = self.last_index  # follow live
 
     def _sim_one(self) -> str:
@@ -124,7 +124,8 @@ class Session:
         ctrl = self.controllers.get(sd, _HUMAN)
         if ctrl == _HUMAN:
             return "human"
-        self._append(*phases.step(self._live, ctrl.decide(self._live), self.rules))
+        d = ctrl.decide(self._live)
+        self._append(*phases.step(self._live, d, self.rules), decision=decision_to_dict(d))
         return "stepped"
 
     def fast_forward_to_decision(self) -> None:
@@ -161,8 +162,26 @@ class Session:
             raise IllegalAction("cannot act on a past frame - return to live first")
         if not self.waiting_for_human():
             raise IllegalAction("not waiting for a human decision")
-        self._append(*phases.step(self._live, decision, self.rules))
+        self._append(*phases.step(self._live, decision, self.rules),
+                     decision=decision_to_dict(decision))
         self.fast_forward_to_decision()
+
+    def to_replay(self, *, label: str = "ui session"):
+        """Snapshot the run so far as a saveable/replayable ``Replay``."""
+        from foosim.sim.replay import Replay
+
+        return Replay(
+            ruleset_hash=self.rules.content_hash,
+            label=label,
+            initial_state=self._frames[0].state.to_dict(),
+            decisions=[f.decision for f in self._frames if f.decision is not None],
+            outcome={
+                "winner": self._live.winner,
+                "end_reason": self._live.end_reason,
+                "rounds": min(self._live.round, self.rules.game["rounds"]),
+                "steps": self.last_index,
+            },
+        )
 
     def rewind_to_cursor(self) -> None:
         """Discard everything after the cursor and resume the game from there."""

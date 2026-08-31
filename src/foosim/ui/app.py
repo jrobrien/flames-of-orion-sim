@@ -133,10 +133,39 @@ def build_replay(rules: Ruleset, path: str) -> UiState:
 # --------------------------------------------------------------------------
 
 
+def _session_dir():
+    import os
+    from pathlib import Path
+
+    base = os.environ.get("XDG_STATE_HOME") or str(Path.home() / ".local" / "state")
+    p = Path(base) / "foosim"
+    p.mkdir(parents=True, exist_ok=True)
+    return p
+
+
+def _save_session(ui: UiState, *, quiet: bool = False) -> str | None:
+    if not ui.is_session:
+        return None
+    from foosim.sim import replay as replaymod
+
+    path = _session_dir() / "last_session.json"
+    replaymod.save(ui.driver.to_replay(label=ui.subtitle), path)
+    if not quiet:
+        ui.last_error = f"saved {path}"
+    return str(path)
+
+
 def _toolbar(ui: UiState) -> None:
     from imgui_bundle import imgui
 
     ui.advance_playback(imgui.get_io().delta_time)
+    # Ctrl+Q always quits cleanly, regardless of the compositor's close handling
+    io = imgui.get_io()
+    if io.key_ctrl and imgui.is_key_pressed(imgui.Key.q):
+        from imgui_bundle import hello_imgui
+
+        hello_imgui.get_runner_params().app_shall_exit = True
+
     d = ui.driver
     fr = d.current
 
@@ -168,6 +197,9 @@ def _toolbar(ui: UiState) -> None:
     if ui.is_session and imgui.button("rewind to here"):
         d.rewind_to_cursor()
         ui.reset_targeting()
+    imgui.same_line()
+    if ui.is_session and imgui.button("save replay"):
+        _save_session(ui)
 
     total = max(d.last_index, 1)
     imgui.set_next_item_width(-1)
@@ -483,8 +515,21 @@ def _runner_params(ui: UiState):
         hello_imgui.DefaultImGuiWindowType.provide_full_screen_dock_space
     )
     iw.enable_viewports = False
+    iw.show_menu_bar = True  # App -> Quit is a shutdown path independent of the compositor
     iw.show_status_bar = True
     iw.show_status_fps = True
+
+    def _before_exit() -> None:
+        try:
+            saved = _save_session(ui, quiet=True)
+        except Exception as e:  # noqa: BLE001
+            print(f"foosim: could not save session replay: {e}")
+            return
+        if saved:
+            print(f"foosim: session saved -> {saved}\n"
+                  f"        reopen with:  foosim-ui --replay {saved}")
+
+    rp.callbacks.before_exit = _before_exit
 
     def _split(initial, new, direction, ratio):
         s = hello_imgui.DockingSplit()

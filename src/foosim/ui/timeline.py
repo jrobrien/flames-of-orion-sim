@@ -23,6 +23,7 @@ class Frame:
     index: int
     state: GameState
     events: list[Event] = field(default_factory=list)
+    decision: dict | None = None  # the decision that produced this frame (Session only)
 
     def event_kinds(self) -> frozenset[str]:
         return frozenset(e.kind for e in self.events)

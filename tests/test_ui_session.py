@@ -125,3 +125,32 @@ def test_submit_rejects_when_not_humans_turn():
     sess = Session(RULES, _gs(1), {0: RandomPolicy(RULES, 1), 1: RandomPolicy(RULES, 2)})
     with pytest.raises(IllegalAction):
         sess.submit(EndActivation())
+
+
+# -- to_replay -------------------------------------------------------
+
+
+def test_to_replay_reproduces_the_session():
+    from foosim.sim.replay import replay_game
+
+    sess = Session(RULES, _gs(3), {0: "human", 1: RandomPolicy(RULES, 8)})
+    _drive_humans(sess)
+    rep = sess.to_replay()
+    assert rep.ruleset_hash == RULES.content_hash
+    assert rep.outcome["winner"] == sess.live.winner
+    final, _ = replay_game(rep, RULES, strict=False)
+    assert state_hash(final) == state_hash(sess.live)
+
+
+def test_to_replay_after_rewind_reflects_the_new_line():
+    from foosim.sim.replay import replay_game
+
+    sess = Session(RULES, _gs(2), {0: "human", 1: RandomPolicy(RULES, 5)})
+    for _ in range(6):
+        sess.submit(_human_decision(sess))
+    sess.seek(3)
+    sess.rewind_to_cursor()
+    _drive_humans(sess)
+    rep = sess.to_replay()
+    final, _ = replay_game(rep, RULES, strict=False)
+    assert state_hash(final) == state_hash(sess.live)
