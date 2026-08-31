@@ -403,19 +403,47 @@ seeded + never on deploy zones. **Not verified:** the imgui window itself — ru
   ammo on some ranged, d66 call sign), `generate_combat_unit`, `random_setup`.
   `foosim-gen-unit` CLI; `foosim-autobattle --random`.
 
-**M7c — remaining (not started):**
-- `ai/policy.GreedyPolicy` — move toward the enemy, fire the best weapon, bolster
-  until an overheat margin, purge when hot, disengage if outgunned. Unblocks
-  meaningful M8 analysis.
-- The `DEFERRED` specials in `test_content_coverage.py`: Rail line attack, LMB
-  splash, Electric Field AoE + pushes (piston / concussive), Cable Whip reach,
-  Power Weapon / Energy Sword burnout, action-upgrades (Self Destruct, Up-Link,
-  Virus Program, Defense Array, Camouflage *action*), ammo (EMF / Concussive /
-  Rapid Fire / Tracer), Counter Missiles.
-- `snap_shot` Move sub-mode (engine currently accepts it as a no-op).
+**M7c ✅ (partial) — GreedyPolicy + snap_shot + LOS perf**
+- `ai/policy.GreedyPolicy` — score every legal option via `plan_attack`
+  (approach / best weapon / bolster to a HEAT margin / purge hot / disengage
+  hurt). Beats `RandomPolicy` ~10:1, deterministic per seed.
+- `snap_shot` Move sub-mode implemented (move up to S, one basic ranged shot at
+  −1 CS mid-move, finish moving). Wired into the UI sub-mode picker.
+- **Perf:** multiray LOS was 85% of auto-battle time. `_hexes_on_segment` now
+  uses axial cube interpolation; `_effective_to_hit`/`plan_attack` take an
+  optional `los_cache` (GreedyPolicy shares one per decision); config memoised.
+  Greedy games 276 → 80 ms; suite 40 → 22 s. Further headroom if needed:
+  state-level LOS memo, fewer multiray sample points.
 
-**Done when:** content-coverage test's `DEFERRED` set is empty; a real
-`GreedyPolicy` beats `RandomPolicy` head-to-head over N games.
+**M7c — STILL DEFERRED (come back here):** every item below is classified
+`DEFERRED` in `test_content_coverage.py`; wiring one = move it to `HANDLED` there
++ a test. M7 is "done" only when that set is empty.
+
+| special / effect | weapon / upgrade / ammo | behaviour to implement |
+|---|---|---|
+| `line_attack`, `self_heat_1_on_use`, `hits_friendlies`, `los_initial_target_only`, `blocked_by_indestructible` | **Rail Weapon** | pick a point; one attack vs every model & destructible terrain on the line (hits friendlies); +1 HEAT on use; LOS only to the initial target; cannot pass indestructible terrain |
+| `splash_2in` | **Large Missile Battery** | after the main hit, also roll to hit every model & terrain within 2" of the target |
+| `hits_all_within_2in`, `push_1in` | **Electric Field** | attack all other models within 2"; each hit takes 1 dmg and is pushed 1" |
+| `push_target_1in_on_hit` | **Piston Gauntlet** | on hit, may move the target 1" directly away |
+| `engagement_range_3in` | **Cable Whip** | treats enemies within 3" as Engaged for this weapon; forced-move interaction (RULES §18) |
+| `burnout_on_1_lose_ap` | **Power Weapon** | hit roll of 1 → lose AP for the rest of the match |
+| `burnout_on_1_becomes_1dmg` | **Energy Sword** | hit roll of 1 → becomes a 1-dmg melee weapon for the game |
+| `target_minus2_speed_until_next_activation` | **EMF Rounds** | damaged model −2 S until end of its next activation |
+| `push_target_2in`, `collision_1_damage` | **Concussive Rounds** | push target 2" directly away; if it hits a model/terrain, 1 dmg to each |
+| `extra_attack_on_hit_roll_6` | **Rapid Fire Rounds** | on a hit roll of 6, resolve the crit then roll another ranged attack with this weapon |
+| `target_position_compromised`, `self_position_compromised` | **Tracer Rounds** | target *and* firer gain Position Compromised |
+| `action_self_destruct_at_heat_7` | **Self Destruct** upgrade | with HEAT ≥ 7, a Self Destruct action → model explodes |
+| `action_active_camo` | **Camouflage** upgrade | an action grants the `active_camo` status (the −1-enemy-ranged-CS *effect* is already read) |
+| `action_uplink_position_compromised` | **Up-Link** upgrade | an action → an enemy in LOS gains Position Compromised |
+| `action_infect_once_per_game` | **Virus Program** upgrade | once per game on activation, infect an enemy: 1 action that turn, not bolstered |
+| `repel_within_1in_on_4plus` | **Defense Array** upgrade | enemy moving within 1", d6 4+ → placed just outside 1" |
+| `negate_ranged_crit_bonus_damage` | **Counter Missiles** upgrade | when hit by a ranged crit, negate the crit's extra damage |
+| `no_specialty_ammo` | **Flame Thrower** | generator/build constraint: no ammo may be assigned |
+
+Cross-cutting: **ammo depletion** (end-of-game d6 per ammo, deplete on 1–3),
+**terrain destruction** on being moved onto / taking damage (RULES §9 —
+partially in the model, not wired to resolution), and **Pilot Eject / Scrappers /
+Modded Frames / Experience** optional rules (out of scope for battle testing).
 
 ### M8 — Missions + analysis dashboard
 `sim/missions.py` pluggable objectives (all 6 + special objectives as optional
