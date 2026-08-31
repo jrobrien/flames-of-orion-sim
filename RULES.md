@@ -161,12 +161,19 @@ action generates **no** HEAT.
 - **Long Range (p.16):** target at `> 10"` → **−1 CS** on the hit roll. The Rail
   Weapon checks this per hit roll. Negated by *Long Range Systems* weapon,
   *Long Range Targeting* upgrade, or *A.I. Missile System*.
-- **Cover (p.16, p.20):** partial obstruction by terrain **or another model** →
-  target **AR +1** for that attack. If the attack misses, it hits the obscuring
+- **Cover (p.16, p.20 / QR p.61):** partial obstruction by terrain **or another
+  model** → **+1 to each of the target's AR save rolls** for that attack (i.e. the
+  natural roll it needs drops by 1). If the attack misses, it hits the obscuring
   model/terrain (**[ADAPT]** v2). *Large Missile Battery* splash targets only get
   cover if cover lies between the original target and them (p.58).
-- **Armor Penetration (AP) (p.29):** **−1** to the target's AR save value for that
-  attack. Multiple sources **stack**.
+- **Armor Penetration (AP) (p.29 / QR p.61):** **−1 to each of the target's AR
+  save rolls** for that attack (the natural roll it needs rises by 1). Multiple
+  sources **stack**. A **natural 6 always saves** regardless of AP.
+
+> **Sign convention (sim):** all "CS"/"AR" numbers are stored as the d6 **target
+> number** ("4+" → `4`). A modifier that makes the roll *harder* is **positive**.
+> Cover/AP are modelled as roll modifiers per QR p.61, not "AR value" changes:
+> `save_tn = AR − cover + AP`, save if `d6 ≥ save_tn` (or natural 6).
 - **Engaged (p.16):** within 1" of an enemy → **cannot Move or Ranged Attack**;
   use Disengage to leave. Melee is fine.
 - **Position Compromised (p.15):** any model targeting a PC-affected model gets
@@ -237,8 +244,9 @@ RANGED / MELEE ATTACK against target T with weapon W:
        roll 2d6 on the table; that result's inherent +1 damage is added;
        apply the effect (lasts until end of game).
 
- 7. Armor saves:  save_tn = T.AR + (1 if cover) - (AP sources)
-       for each point of damage: roll d6; >= save_tn -> ignored; else T.HP -= 1
+ 7. Armor saves:  save_tn = T.AR - (1 if cover) + (AP sources)
+       for each point of damage: roll d6; (>= save_tn OR natural 6) -> ignored;
+       else T.HP -= 1
        (Reactive Armor: ignore the first 1 point this game.
         AR is rolled once per point; AR "always saves on a natural 6" per QR p.60.)
 

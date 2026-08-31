@@ -29,12 +29,21 @@ def test_long_range_worsens_cs_and_hit_chance():
     assert far.hit_chance < near.hit_chance
 
 
-def test_cover_raises_save_tn():
+def test_cover_helps_the_target_and_ap_hurts_it():
+    # cover: +1 to the AR roll -> the natural roll needed drops
     gs = duel(RULES, b_pos=Hex(0, 4))
     gs.terrain = {Hex(0, 2): TerrainHex(Hex(0, 2), {"cover"})}
-    p = resolve.plan_attack(gs, "A", "B", 0, RULES, kind="ranged")
-    assert p.legal and p.cover
-    assert p.save_tn == 7  # AR 6 + cover 1
+    covered = resolve.plan_attack(gs, "A", "B", 0, RULES, kind="ranged")
+    open_ = resolve.plan_attack(duel(RULES, b_pos=Hex(0, 4)), "A", "B", 0, RULES, kind="ranged")
+    assert covered.cover and not open_.cover
+    assert covered.save_tn == open_.save_tn - 1  # AR 6 -> needs 5+
+    assert covered.expected_damage_through < open_.expected_damage_through
+
+    # AP: -1 to the AR roll -> the natural roll needed rises
+    ap_gs = duel(RULES, a_ranged=("long_range_systems",), b_pos=Hex(0, 3))  # LRS has AP
+    ap = resolve.plan_attack(ap_gs, "A", "B", 0, RULES, kind="ranged")
+    assert ap.ap == 1
+    assert ap.save_tn == ap_gs.units["B"].ar + 1  # AR 6 -> needs 7+ (only natural 6 saves)
 
 
 def test_illegal_shots_report_reason_and_zero_chance():

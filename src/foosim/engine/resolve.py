@@ -384,7 +384,7 @@ def plan_attack(state, attacker_id: str, target_id: str, weapon_index: int, rule
     crit_p = 1.0 / 6.0
     confirm_p = sum(1 for r in range(1, 7) if r >= u.stat("cs")) / 6.0
     ap = _ap_for(weap, wspec, t, rules)
-    save_tn = t.stat("ar") + (th["cover_ar_bonus"] if cover else 0) - ap
+    save_tn = t.stat("ar") - (th["cover_ar_bonus"] if cover else 0) + ap  # see _apply_damage
     save_p = sum(1 for r in range(1, 7) if r >= save_tn or r == th["ar_always_saves_on"]) / 6.0
     e_base = _expected_roll(expr)
     crit_bonus = th["crit_bonus_damage"] + (1 if "sensor_array" in u.upgrades else 0)
@@ -472,7 +472,10 @@ def _apply_damage(s, t: Unit, dmg: int, *, ap: int, cover: bool, rules, rng, ev,
         emit(s, ev, "damage_soaked", target=t.id, amount=soak, source="reactive_armor")
         if dmg <= 0:
             return
-    save_tn = t.stat("ar") + (rules.to_hit["cover_ar_bonus"] if cover else 0) - ap
+    # QR p.61: cover is +1 to the AR *roll* (helps), AP is -1 to the AR *roll*
+    # (hurts). Expressed as the natural roll needed: -cover, +ap. Natural 6 always
+    # saves regardless of AP.
+    save_tn = t.stat("ar") - (rules.to_hit["cover_ar_bonus"] if cover else 0) + ap
     always = rules.to_hit["ar_always_saves_on"]
     rolls = rng.pool(dmg)
     emit(s, ev, "dice_roll", unit=t.id, purpose="armor_save", notation=f"{dmg}d6",
