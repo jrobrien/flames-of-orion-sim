@@ -372,7 +372,8 @@ def _do_melee(s, a: MeleeAttackAction, rules, rng, ev) -> None:
 
 
 def _resolve_attack(s, u, t, weap: WeaponInstance, wspec, rules, rng, ev, *,
-                    tn: int, cover: bool, kind: str, long_range: bool) -> None:
+                    tn: int, cover: bool, kind: str, long_range: bool,
+                    widx: int | None = None) -> None:
     th = rules.to_hit
     specials = set(wspec.get("special", []))
     ammo_specials = (
@@ -392,7 +393,10 @@ def _resolve_attack(s, u, t, weap: WeaponInstance, wspec, rules, rng, ev, *,
         outcome = "hit"
     else:
         outcome = "miss"
+    if widx is None:  # identity, not ==: two identical weapons compare equal
+        widx = next((i for i, w in enumerate(u.weapons) if w is weap), -1)
     emit(s, ev, "attack", attacker=u.id, target=t.id, weapon=weap.weapon_id, kind=kind,
+         weapon_index=widx, ammo=weap.ammo_id,
          effective_cs=tn, roll=roll, outcome=outcome, cover=cover, long_range=long_range,
          position_compromised=pc)
     weap.used_this_turn = True
@@ -596,7 +600,7 @@ def _do_disengage(s, a: DisengageAction, rules, rng, ev) -> None:
         emit(s, ev, "free_attack", attacker=e.id, target=u.id, reason="disengage")
         freebie = WeaponInstance(mw.weapon_id, "melee")  # reaction: does not consume e's weapon
         _resolve_attack(s, e, u, freebie, wspec, rules, rng, ev,
-                        tn=e.stat("cs"), cover=False, kind="melee", long_range=False)
+                        tn=e.stat("cs"), cover=False, kind="melee", long_range=False, widx=mi)
         if u.out_of_action:
             break
 

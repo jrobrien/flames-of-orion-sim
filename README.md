@@ -115,10 +115,31 @@ uv run --extra ui foosim-ui                     # watch a bot game (the screensh
 uv run foosim-autobattle --seed 1              # headless AI vs AI, event log only
 uv run foosim-gen-unit --seed 5                # print random mech stat blocks
 uv run foosim-sheet --seed 5 --pages 2 --out mechs.html   # printable random squads (see above)
-uv run foosim-analyze --games 500 --matchup greedy-vs-greedy          # bulk stats (all CPUs; -j N to limit)
-uv run foosim-analyze --games 500 --override heat.second_action=2 --baseline base.csv  # A/B a rule
+uv run foosim-sheet --blank --pages 4 --out blank.html   # blank fill-in sheets
+uv run foosim-analyze                           # help: commands, bots, setups, workflows
+uv run foosim-analyze run --games 500           # bulk stats (all CPUs; -j N to limit)
+uv run foosim-analyze run --games 500 --matchup greedy-vs-random --setup scatter
+uv run foosim-analyze run --games 2000 --db results.sqlite --label baseline  # + per-mech/weapon data
+uv run foosim-analyze report weapons --db results.sqlite      # damage / cost-efficiency by weapon
+uv run foosim-analyze report frames --db results.sqlite       # light vs medium vs heavy
+uv run foosim-analyze run --games 1000 --squad-seed-0 7 --db ctrl.sqlite   # pin side 0's squad
+uv run foosim-analyze run --games 1000 --mirror --db mirror.sqlite         # both sides, same squad
+uv run foosim-analyze list gear                 # prices, and which items the sim implements
+uv run foosim-analyze describe greedy           # what a bot / setup / report / table is
+uv run foosim-analyze schema                    # SQLite tables, every column explained
+uv run foosim-analyze manifest > manifest.json  # everything as JSON (for scripts / agents)
+uv run foosim-analyze run --games 500 --override heat.second_action=2 --baseline base.csv  # A/B a rule
 uv run --extra ui foosim-ui --replay tests/data/replays/skirmish_2v2_seed1.json  # scrub a saved game
 ```
+
+### Bulk analysis: finding the best builds and weapons
+
+`foosim-analyze` runs thousands of AI-vs-AI games in parallel and can store per-mech
+builds and per-weapon damage in SQLite for your own analysis. Start with the
+[**analysis guide**](docs/analysis-guide.md) (which sim to run, the damage metric, how to
+isolate variables with squad seeds, the database schema and example queries); the tool
+documents itself too: `foosim-analyze` (overview), `list bots|setups|gear`,
+`describe NAME`, `schema`, and `manifest` (everything as JSON, for scripts and agents).
 
 ### Play a game yourself
 

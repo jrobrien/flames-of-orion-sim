@@ -22,7 +22,7 @@
 .stats div:nth-child(odd) { border-right: 1px solid #000; }
 .stats div:nth-child(n+3) { border-bottom: 0; }
 .stats b:empty { min-height: 0.24in; }
-.stats span { font-weight: bold; font-size: 9px; } .stats b { font-size: 15px; }
+.stats span { font-weight: bold; font-size: 10px; } .stats b { font-size: 15px; }
 .trk { padding: 2px 5px 3px; border-bottom: 1px solid #000; flex: 1; }
 .trk:last-child { border-bottom: 0; }
 .trk span { font-weight: bold; font-size: 8px; text-transform: uppercase; display: block; }

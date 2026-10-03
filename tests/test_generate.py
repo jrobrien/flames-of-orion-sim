@@ -168,3 +168,13 @@ def test_pinned_squad_seeds_isolate_variables():
     assert pinned_map.terrain.keys() == other.terrain.keys()
     free = random_setup(RULES, seed=1)
     assert sig(free, 0) == sig(random_setup(RULES, seed=1), 0)  # default unchanged
+
+
+def test_mirror_gives_both_sides_the_same_squad_that_still_varies_by_seed():
+    def sig(gs, side):
+        return [(u.profile, [w.weapon_id for w in u.weapons], u.upgrades)
+                for u in gs.units.values() if u.side == side]
+
+    a, b = random_setup(RULES, seed=1, mirror=True), random_setup(RULES, seed=2, mirror=True)
+    assert sig(a, 0) == sig(a, 1) and sig(b, 0) == sig(b, 1)
+    assert sig(a, 0) != sig(b, 0)

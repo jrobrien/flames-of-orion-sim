@@ -159,10 +159,10 @@
   <div class="body">
     <div class="left">
       <div class="stats">
-        <div><span>S</span><b>${u.speed}${star.S}</b></div>
-        <div><span>CS</span><b>${u.cs}+${star.CS}</b></div>
-        <div><span>AR</span><b>${u.ar}+${star.AR}</b></div>
-        <div><span>HL</span><b>${u.hl}${star.HL}</b></div>
+        <div><span>S${star.S}</span><b>${u.speed}</b></div>
+        <div><span>CS${star.CS}</span><b>${u.cs}+</b></div>
+        <div><span>AR${star.AR}</span><b>${u.ar}+</b></div>
+        <div><span>HL${star.HL}</span><b>${u.hl}</b></div>
       </div>
       <div class="trk"><span>Heat tracker</span>${circles(u.hl, true)}</div>
       <div class="trk"><span>HP tracker${star.HP}</span>${circles(u.hp, false)}</div>

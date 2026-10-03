@@ -108,6 +108,7 @@ class Unit:
     can_ram: bool = True
     ignores_terrain_on_move: bool = False
     heat_check_table: str = "check_default"
+    perk: str = ""  # Experience perk id baked in at generation (provenance / analysis only)
 
     # activation state
     activated: bool = False
@@ -158,6 +159,7 @@ class Unit:
             "can_ram": self.can_ram,
             "ignores_terrain_on_move": self.ignores_terrain_on_move,
             "heat_check_table": self.heat_check_table,
+            "perk": self.perk,
             "activated": self.activated,
             "out_of_action": self.out_of_action,
         }
@@ -188,6 +190,7 @@ class Unit:
             can_ram=bool(d.get("can_ram", True)),
             ignores_terrain_on_move=bool(d.get("ignores_terrain_on_move", False)),
             heat_check_table=d.get("heat_check_table", "check_default"),
+            perk=d.get("perk", ""),
             activated=bool(d.get("activated", False)),
             out_of_action=bool(d.get("out_of_action", False)),
         )

@@ -176,10 +176,10 @@ def _block(rules: Ruleset, u: Unit, n: int, perk: dict | None = None) -> str:
   <div class="body">
     <div class="left">
       <div class="stats">
-        <div><span>S</span><b>{u.speed}{star['S']}</b></div>
-        <div><span>CS</span><b>{u.cs}+{star['CS']}</b></div>
-        <div><span>AR</span><b>{u.ar}+{star['AR']}</b></div>
-        <div><span>HL</span><b>{u.heat_limit}{star['HL']}</b></div>
+        <div><span>S{star['S']}</span><b>{u.speed}</b></div>
+        <div><span>CS{star['CS']}</span><b>{u.cs}+</b></div>
+        <div><span>AR{star['AR']}</span><b>{u.ar}+</b></div>
+        <div><span>HL{star['HL']}</span><b>{u.heat_limit}</b></div>
       </div>
       <div class="trk"><span>Heat tracker</span>{_circles(u.heat_limit, label=True)}</div>
       <div class="trk"><span>HP tracker{star['HP']}</span>{_circles(u.hp_max)}</div>
@@ -223,7 +223,7 @@ body { margin: 0; font: 10px/1.2 "DejaVu Sans Condensed", "Arial Narrow", Arial,
 .stats div:nth-child(odd) { border-right: 1px solid #000; }
 .stats div:nth-child(n+3) { border-bottom: 0; }
 .stats b:empty { min-height: 0.24in; }
-.stats span { font-weight: bold; font-size: 9px; } .stats b { font-size: 15px; }
+.stats span { font-weight: bold; font-size: 10px; } .stats b { font-size: 15px; }
 .trk { padding: 2px 5px 3px; border-bottom: 1px solid #000; flex: 1; }
 .trk:last-child { border-bottom: 0; }
 .trk span { font-weight: bold; font-size: 8px; text-transform: uppercase; display: block; }

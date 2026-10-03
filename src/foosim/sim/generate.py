@@ -164,6 +164,7 @@ def generate_squad(
                           supported_only=supported_only)
         if i == 0:
             perk = pick_perk(rules, rng, u, supported_only=supported_only)
+            u.perk = perk["id"]
         units.append(u)
     return units, perk
 
@@ -188,6 +189,7 @@ def random_setup(
     squad_seed_0: int | None = None,
     squad_seed_1: int | None = None,
     terrain_seed: int | None = None,
+    mirror: bool = False,
 ) -> GameState:
     """Two randomly generated ``n``-mech combat units on a square board. Default
     is a 4v4 on a 30x30 urban map (matching how the game is usually played);
@@ -197,9 +199,13 @@ def random_setup(
     dice). ``squad_seed_0`` / ``squad_seed_1`` pin that side's squad (frames, gear, call
     signs, perk) to its own seed, so it is the same in every game while the other side,
     the map and the dice still vary with ``seed``; the same value on both sides gives a
-    mirror match. ``terrain_seed`` likewise pins the map."""
+    mirror match. ``mirror`` copies side 0's squad onto side 1 in every game (squads still
+    vary game to game, with side 0's pinned seed if given). ``terrain_seed`` likewise
+    pins the map."""
     rng = Rng.from_seed(seed ^ 0x6E_4E_5A)
     pinned = {0: squad_seed_0, 1: squad_seed_1}
+    if mirror:
+        base = (seed ^ 0x6E_4E_5A) if squad_seed_0 is None else (squad_seed_0 ^ 0x51_AD_0E)
     mapspec = MapSpec(
         cols=cols, rows=rows, name=f"random_{terrain}",
         deploy_zones={
@@ -211,7 +217,10 @@ def random_setup(
     span = cols // (n + 1)
     for side in (0, 1):
         row = 1 if side == 0 else rows - 2
-        side_rng = rng if pinned[side] is None else Rng.from_seed(pinned[side] ^ 0x51_AD_0E)
+        if mirror:
+            side_rng = Rng.from_seed(base)  # identical stream => identical squad
+        else:
+            side_rng = rng if pinned[side] is None else Rng.from_seed(pinned[side] ^ 0x51_AD_0E)
         squad = generate_combat_unit(rules, side_rng, side, n=n, id_prefix="AB"[side],
                                      supported_only=supported_only)
         for k, u in enumerate(squad):
