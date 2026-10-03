@@ -1,6 +1,6 @@
 """Actions and activation-control decisions. Pure data.
 
-``resolve.apply`` executes the five *actions*; ``phases.step`` also consumes the
+``resolve.apply`` executes the six *actions*; ``phases.step`` also consumes the
 *control* decisions (``ActivateUnit`` / ``EndActivation`` / ``Pass``). All carry
 ``to_dict`` / ``from_dict`` via :func:`decision_to_dict` / :func:`decision_from_dict`
 so a replay is just an ordered list of these.
@@ -23,6 +23,7 @@ __all__ = [
     "Pass",
     "PurgeHeatAction",
     "RangedAttackAction",
+    "SelfDestructAction",
     "decision_from_dict",
     "decision_to_dict",
     "is_action",
@@ -76,6 +77,13 @@ class PurgeHeatAction:
 
 
 @dataclass
+class SelfDestructAction:
+    """Self Destruct upgrade: explode at will (needs the heat threshold)."""
+
+    unit_id: str
+
+
+@dataclass
 class ActivateUnit:
     unit_id: str
 
@@ -96,6 +104,7 @@ ACTION_TYPES = (
     MeleeAttackAction,
     DisengageAction,
     PurgeHeatAction,
+    SelfDestructAction,
 )
 _ALL_TYPES = (*ACTION_TYPES, ActivateUnit, EndActivation, Pass)
 _BY_NAME = {c.__name__: c for c in _ALL_TYPES}

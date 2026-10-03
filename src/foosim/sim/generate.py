@@ -185,11 +185,21 @@ def random_setup(
     rows: int = 30,
     terrain: str = "city",
     supported_only: bool = True,
+    squad_seed_0: int | None = None,
+    squad_seed_1: int | None = None,
+    terrain_seed: int | None = None,
 ) -> GameState:
     """Two randomly generated ``n``-mech combat units on a square board. Default
     is a 4v4 on a 30x30 urban map (matching how the game is usually played);
-    ``terrain`` is ``"city"`` (dense blocking + cover), ``"scatter"``, or ``"none"``."""
+    ``terrain`` is ``"city"`` (dense blocking + cover), ``"scatter"``, or ``"none"``.
+
+    Isolating variables: ``seed`` drives everything by default (squads, terrain, game
+    dice). ``squad_seed_0`` / ``squad_seed_1`` pin that side's squad (frames, gear, call
+    signs, perk) to its own seed, so it is the same in every game while the other side,
+    the map and the dice still vary with ``seed``; the same value on both sides gives a
+    mirror match. ``terrain_seed`` likewise pins the map."""
     rng = Rng.from_seed(seed ^ 0x6E_4E_5A)
+    pinned = {0: squad_seed_0, 1: squad_seed_1}
     mapspec = MapSpec(
         cols=cols, rows=rows, name=f"random_{terrain}",
         deploy_zones={
@@ -201,7 +211,8 @@ def random_setup(
     span = cols // (n + 1)
     for side in (0, 1):
         row = 1 if side == 0 else rows - 2
-        squad = generate_combat_unit(rules, rng, side, n=n, id_prefix="AB"[side],
+        side_rng = rng if pinned[side] is None else Rng.from_seed(pinned[side] ^ 0x51_AD_0E)
+        squad = generate_combat_unit(rules, side_rng, side, n=n, id_prefix="AB"[side],
                                      supported_only=supported_only)
         for k, u in enumerate(squad):
             u.pos = from_offset_oddr(span * (k + 1), row)
@@ -210,7 +221,7 @@ def random_setup(
         set(mapspec.deploy_zones[0]) | set(mapspec.deploy_zones[1])
         | {u.pos for u in units.values()}
     )
-    terr_rng = Rng.from_seed(seed ^ 0x5CA_77E4)
+    terr_rng = Rng.from_seed((seed if terrain_seed is None else terrain_seed) ^ 0x5CA_77E4)
     if terrain == "city":
         terr = city_terrain(mapspec, terr_rng, avoid=avoid)
     elif terrain == "scatter":

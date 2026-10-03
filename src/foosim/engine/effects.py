@@ -37,6 +37,7 @@ HANDLED_SPECIALS = frozenset({
     # Rail Weapon - resolve._resolve_rail
     "line_attack", "self_heat_1_on_use", "hits_friendlies",
     "los_initial_target_only", "blocked_by_indestructible",
+    "action_self_destruct_at_heat_7",  # SelfDestructAction (resolve._do_self_destruct)
 })
 
 # not yet implemented - the M7c backlog
@@ -53,7 +54,7 @@ DEFERRED_SPECIALS = frozenset({
     "extra_attack_on_hit_roll_6",
     "target_position_compromised", "self_position_compromised",
     # action-granting upgrades
-    "action_self_destruct_at_heat_7", "action_active_camo",
+    "action_active_camo",
     "action_uplink_position_compromised", "action_infect_once_per_game",
     "repel_within_1in_on_4plus",
 })
@@ -62,6 +63,7 @@ HANDLED_UPGRADE_EFFECTS = frozenset({
     "set_armor", "speed_delta", "cs_delta", "heat_limit_delta",
     "platform_slots_delta", "hull_points_delta", "ignore_first_damage",
     "ignores_terrain_on_move", "heat_check_table", "free_slot",
+    "self_destruct_min_heat",                # legal/resolve: self_destruct
     "explode_as_heat",                       # resolve: nuclear_core
     "ignores_long_range_penalty",            # resolve: long_range_targeting
     "crit_bonus_damage",                     # resolve: sensor_array

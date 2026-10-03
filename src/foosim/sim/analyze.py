@@ -4,6 +4,7 @@
   foosim-analyze --games 500 --override heat.second_action=2 --out variant.csv \\
                  --baseline base.csv
 
+Games run across all CPUs by default (``-j N`` to limit, ``-j 1`` for in-process).
 Stdlib only, so it runs in CI. Per-game rows -> CSV; a summary dict -> stdout;
 ``diff(a, b)`` for baseline vs variant.
 """
@@ -12,6 +13,9 @@ from __future__ import annotations
 
 import argparse
 import csv
+import os
+import sys
+from concurrent.futures import ProcessPoolExecutor
 from dataclasses import asdict, dataclass, fields
 from pathlib import Path
 
@@ -28,6 +32,7 @@ __all__ = [
     "parse_override",
     "read_csv",
     "run_many",
+    "run_parallel",
     "run_one",
     "summarize",
     "write_csv",
@@ -35,9 +40,9 @@ __all__ = [
 
 _POLICIES = {"greedy": GreedyPolicy, "random": RandomPolicy}
 _SETUPS = {
-    "urban": lambda r, s: random_setup(r, seed=s),                       # 4v4, 30x30 city
-    "scatter": lambda r, s: random_setup(r, seed=s, terrain="scatter"),  # 4v4, sparse
-    "skirmish": lambda r, s: skirmish_2v2(r, seed=s),                    # fixed 2v2, small
+    "urban": lambda r, s, **o: random_setup(r, seed=s, **o),                       # 4v4 city
+    "scatter": lambda r, s, **o: random_setup(r, seed=s, terrain="scatter", **o),  # 4v4 sparse
+    "skirmish": lambda r, s, **o: skirmish_2v2(r, seed=s, **o),                    # fixed 2v2
 }
 
 
@@ -117,6 +122,58 @@ def run_many(make_setup, make_policies, rules: Ruleset, *, n: int, seed0: int = 
         run_one(make_setup(s), make_policies(s), rules, s)
         for s in range(seed0, seed0 + n)
     ]
+
+
+def _factories(rules: Ruleset, setup: str, p0: str, p1: str, opts: dict | None = None):
+    """Per-seed setup / policy factories for named setups and policies. ``opts`` are
+    extra setup keyword args (``squad_seed_0`` / ``squad_seed_1`` / ``terrain_seed``)."""
+    setup_fn, P0, P1 = _SETUPS[setup], _POLICIES[p0], _POLICIES[p1]
+    opts = dict(opts or {})
+    return (
+        lambda s: setup_fn(rules, s, **opts),
+        lambda s: {0: P0(rules, s * 2 + 1), 1: P1(rules, s * 2 + 2)},
+    )
+
+
+# Worker-process state, set once per worker by _init_worker.
+_WORKER: tuple | None = None
+
+
+def _init_worker(rules: Ruleset, setup: str, p0: str, p1: str, opts: dict) -> None:
+    global _WORKER
+    _WORKER = (rules, *_factories(rules, setup, p0, p1, opts))
+
+
+def _run_seed(seed: int) -> GameRow:
+    assert _WORKER is not None
+    rules, make_setup, make_policies = _WORKER
+    return run_one(make_setup(seed), make_policies(seed), rules, seed)
+
+
+def run_parallel(
+    rules: Ruleset, setup: str, p0: str, p1: str, *, n: int, seed0: int = 0,
+    jobs: int | None = None, progress: bool = False, setup_opts: dict | None = None,
+) -> list[GameRow]:
+    """``run_many`` for named setups/policies across worker processes. Each game depends
+    only on its seed, so rows come back in seed order and are identical to a serial
+    run. ``jobs`` of ``None`` uses every CPU; ``1`` stays in-process."""
+    seeds = range(seed0, seed0 + n)
+    jobs = min(jobs or os.cpu_count() or 1, n) or 1
+    if jobs <= 1:
+        make_setup, make_policies = _factories(rules, setup, p0, p1, setup_opts)
+        return run_many(make_setup, make_policies, rules, n=n, seed0=seed0)
+    rows: list[GameRow] = []
+    with ProcessPoolExecutor(
+        max_workers=jobs, initializer=_init_worker,
+        initargs=(rules, setup, p0, p1, dict(setup_opts or {})),
+    ) as pool:
+        for row in pool.map(_run_seed, seeds, chunksize=max(1, min(16, n // (jobs * 4)))):
+            rows.append(row)
+            if progress:
+                print(f"\r  {len(rows)}/{n} games", end="", file=sys.stderr, flush=True)
+    if progress:
+        print(file=sys.stderr)
+    return rows
 
 
 def summarize(rows: list[GameRow]) -> dict:
@@ -204,6 +261,14 @@ def main(argv: list[str] | None = None) -> None:
                     help="p0-vs-p1, each of: " + " / ".join(_POLICIES))
     ap.add_argument("--override", action="append", default=[], metavar="PATH=VALUE",
                     help="rules.toml override (repeatable)")
+    ap.add_argument("--squad-seed", type=int, metavar="N",
+                    help="pin BOTH squads to this seed (same squads every game; same value "
+                         "on both sides = mirror match)")
+    ap.add_argument("--squad-seed-0", type=int, metavar="N", help="pin side 0's squad only")
+    ap.add_argument("--squad-seed-1", type=int, metavar="N", help="pin side 1's squad only")
+    ap.add_argument("--terrain-seed", type=int, metavar="N", help="pin the map to this seed")
+    ap.add_argument("-j", "--jobs", type=int, default=None, metavar="N",
+                    help="worker processes (default: all CPUs; 1 = run in-process)")
     ap.add_argument("--out", metavar="CSV", help="write per-game rows here")
     ap.add_argument("--baseline", metavar="CSV", help="prior --out CSV to diff against")
     args = ap.parse_args(argv)
@@ -213,15 +278,17 @@ def main(argv: list[str] | None = None) -> None:
         rules = rules.with_overrides(dict(parse_override(o) for o in args.override))
 
     p0_name, _, p1_name = args.matchup.partition("-vs-")
-    P0, P1 = _POLICIES[p0_name], _POLICIES[p1_name]
-    setup_fn = _SETUPS[args.setup]
-
-    rows = run_many(
-        lambda s: setup_fn(rules, s),
-        lambda s: {0: P0(rules, s * 2 + 1), 1: P1(rules, s * 2 + 2)},
-        rules,
-        n=args.games,
-        seed0=args.seed,
+    setup_opts = {
+        "squad_seed_0": args.squad_seed if args.squad_seed_0 is None else args.squad_seed_0,
+        "squad_seed_1": args.squad_seed if args.squad_seed_1 is None else args.squad_seed_1,
+        "terrain_seed": args.terrain_seed,
+    }
+    setup_opts = {k: v for k, v in setup_opts.items() if v is not None}
+    if setup_opts and args.setup == "skirmish":
+        ap.error("squad/terrain seeds apply to the urban and scatter setups only")
+    rows = run_parallel(
+        rules, args.setup, p0_name, p1_name, n=args.games, seed0=args.seed,
+        jobs=args.jobs, progress=sys.stderr.isatty(), setup_opts=setup_opts,
     )
     summary = summarize(rows)
 

@@ -16,6 +16,7 @@ from foosim.engine.actions import (
     MoveAction,
     PurgeHeatAction,
     RangedAttackAction,
+    SelfDestructAction,
 )
 from foosim.engine.hexgrid import Hex
 from foosim.engine.visibility import VisibilityConfig, line_of_sight
@@ -207,5 +208,11 @@ def legal_actions(state, unit, rules, *, bolster: bool = True) -> list:
         acts.append(PurgeHeatAction(u.id))
         if bolster and state.actions_taken == 0:
             acts.append(PurgeHeatAction(u.id, bolster="reboot"))
+
+    # ---- self destruct (upgrade) ----
+    if "self_destruct" in u.upgrades:
+        floor = int(rules.upgrade("self_destruct")["effect"]["self_destruct_min_heat"])
+        if u.heat >= floor:
+            acts.append(SelfDestructAction(u.id))
 
     return acts

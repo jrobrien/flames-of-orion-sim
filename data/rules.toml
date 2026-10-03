@@ -434,6 +434,7 @@ cost = 10000
 roll = 11
 name = "Self Destruct"
 special = ["action_self_destruct_at_heat_7"]
+effect = { self_destruct_min_heat = 7 }
 
 [[upgrades]]
 id = "camouflage"

@@ -115,7 +115,7 @@ uv run --extra ui foosim-ui                     # watch a bot game (the screensh
 uv run foosim-autobattle --seed 1              # headless AI vs AI, event log only
 uv run foosim-gen-unit --seed 5                # print random mech stat blocks
 uv run foosim-sheet --seed 5 --pages 2 --out mechs.html   # printable random squads (see above)
-uv run foosim-analyze --games 500 --matchup greedy-vs-greedy          # bulk stats -> summary
+uv run foosim-analyze --games 500 --matchup greedy-vs-greedy          # bulk stats (all CPUs; -j N to limit)
 uv run foosim-analyze --games 500 --override heat.second_action=2 --baseline base.csv  # A/B a rule
 uv run --extra ui foosim-ui --replay tests/data/replays/skirmish_2v2_seed1.json  # scrub a saved game
 ```

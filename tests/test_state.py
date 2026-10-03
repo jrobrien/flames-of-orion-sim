@@ -122,3 +122,44 @@ def test_unit_at_and_live_units():
     gs.units["A1"].out_of_action = True
     assert gs.live_units() == []
     assert gs.unit_at(Hex(2, -3)) is None
+
+
+def _mutable_fields_shared(a, b) -> list[str]:
+    from dataclasses import fields
+
+    return [
+        f.name
+        for f in fields(a)
+        if isinstance(getattr(a, f.name), (list, dict, set))
+        and getattr(a, f.name) is getattr(b, f.name)
+    ]
+
+
+def test_copy_is_independent_and_matches_to_dict():
+    from foosim.engine.rules import load
+    from foosim.sim.generate import random_setup
+
+    s = random_setup(load(), seed=4)
+    c = s.copy()
+    assert c.to_dict() == s.to_dict()
+    assert c.mapspec is s.mapspec  # intentionally shared (immutable during a game)
+
+    # no mutable container may be shared, at any level (guards new fields being missed)
+    assert _mutable_fields_shared(s, c) == []
+    for uid, u in s.units.items():
+        assert _mutable_fields_shared(u, c.units[uid]) == []
+        for w, w2 in zip(u.weapons, c.units[uid].weapons, strict=True):
+            assert w is not w2
+    for h, t in s.terrain.items():
+        assert _mutable_fields_shared(t, c.terrain[h]) == []
+
+    before = s.to_dict()
+    unit = next(iter(c.units.values()))
+    unit.hp -= 1
+    unit.weapons[0].used_this_turn = True
+    unit.modifiers["cs"] = 9
+    unit.statuses["x"] = 1
+    unit.upgrades.append("armor_mk1")
+    next(iter(c.terrain.values())).tags.add("cover")
+    c.pass_tokens[0] = 5
+    assert s.to_dict() == before

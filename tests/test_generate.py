@@ -149,3 +149,22 @@ def test_random_setup_squads_use_quick_play_makeup():
     for side in (0, 1):
         frames = sorted(u.profile for u in gs.units.values() if u.side == side)
         assert frames == ["mech.heavy", "mech.light", "mech.medium", "mech.medium"]
+
+
+def test_pinned_squad_seeds_isolate_variables():
+    def sig(gs, side):
+        return [(u.profile, u.name, [w.weapon_id for w in u.weapons], u.upgrades, u.speed)
+                for u in gs.units.values() if u.side == side]
+
+    a = random_setup(RULES, seed=1, squad_seed_0=77)
+    b = random_setup(RULES, seed=2, squad_seed_0=77)
+    assert sig(a, 0) == sig(b, 0)          # pinned side identical across game seeds
+    assert sig(a, 1) != sig(b, 1)          # the other side still varies
+    assert a.terrain.keys() != b.terrain.keys()
+    mirror = random_setup(RULES, seed=3, squad_seed_0=5, squad_seed_1=5)
+    assert sig(mirror, 0) == sig(mirror, 1)
+    pinned_map = random_setup(RULES, seed=4, terrain_seed=9)
+    other = random_setup(RULES, seed=5, terrain_seed=9)
+    assert pinned_map.terrain.keys() == other.terrain.keys()
+    free = random_setup(RULES, seed=1)
+    assert sig(free, 0) == sig(random_setup(RULES, seed=1), 0)  # default unchanged

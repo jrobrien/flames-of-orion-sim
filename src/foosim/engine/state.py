@@ -19,8 +19,7 @@ Design:
 
 from __future__ import annotations
 
-import copy
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from foosim.engine.hexgrid import Hex
 
@@ -48,6 +47,9 @@ class WeaponInstance:
     used_this_turn: bool = False
     disabled: bool = False
     burnout: bool = False  # Power Weapon lost AP / Energy Sword degraded
+
+    def clone(self) -> WeaponInstance:
+        return replace(self)  # all fields are scalars
 
     def to_dict(self) -> dict:
         return {
@@ -118,6 +120,18 @@ class Unit:
     def stat(self, name: str) -> int:
         """Effective value of a stat: base field + accumulated modifier delta."""
         return getattr(self, name) + self.modifiers.get(name, 0)
+
+    def clone(self) -> Unit:
+        """Independent copy (``Hex`` is an immutable tuple). ``replace`` carries every
+        scalar field; only the mutable containers need copying here - add any new
+        list/dict/set field to this call (``test_state`` checks none are shared)."""
+        return replace(
+            self,
+            weapons=[w.clone() for w in self.weapons],
+            upgrades=list(self.upgrades),
+            modifiers=dict(self.modifiers),
+            statuses=dict(self.statuses),
+        )
 
     def to_dict(self) -> dict:
         return {
@@ -190,6 +204,9 @@ class TerrainHex:
     @property
     def destructible(self) -> bool:
         return "destructible" in self.tags
+
+    def clone(self) -> TerrainHex:
+        return replace(self, tags=set(self.tags))
 
     def to_dict(self) -> dict:
         return {
@@ -293,9 +310,16 @@ class GameState:
     end_reason: str | None = None
 
     def copy(self) -> GameState:
-        # mapspec is immutable during a game - share it instead of deep-copying
-        # its (large, static) elevation / deploy-zone dicts every step.
-        return copy.deepcopy(self, {id(self.mapspec): self.mapspec})
+        """Independent copy of the mutable game state. ``mapspec`` is immutable during
+        a game, so it is shared. Hand-written (not ``copy.deepcopy``) because this runs
+        on every action and every AI preview; ``to_dict`` / ``from_dict`` remain the
+        serialization path."""
+        return replace(
+            self,
+            units={uid: u.clone() for uid, u in self.units.items()},
+            terrain={h: t.clone() for h, t in self.terrain.items()},
+            pass_tokens=dict(self.pass_tokens),
+        )
 
     # -- convenience ----------------------------------------------------
     def unit_at(self, h: Hex) -> Unit | None:

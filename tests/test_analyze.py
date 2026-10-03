@@ -93,3 +93,13 @@ def test_csv_roundtrip(tmp_path):
     back = read_csv(p)
     assert [vars(r) for r in back] == [vars(r) for r in rows]
     assert all(isinstance(r, GameRow) for r in back)
+
+
+def test_parallel_run_matches_serial_in_seed_order():
+    from foosim.sim.analyze import run_parallel
+
+    serial = run_parallel(RULES, "skirmish", "greedy", "random", n=12, seed0=5, jobs=1)
+    par = run_parallel(RULES, "skirmish", "greedy", "random", n=12, seed0=5, jobs=3)
+    assert [r.seed for r in par] == list(range(5, 17))
+    assert par == serial
+    assert summarize(par) == summarize(serial)

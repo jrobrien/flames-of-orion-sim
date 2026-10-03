@@ -17,15 +17,22 @@ from foosim.engine.actions import (
     MoveAction,
     PurgeHeatAction,
     RangedAttackAction,
+    SelfDestructAction,
 )
 from foosim.engine.legal import legal_actions
-from foosim.engine.resolve import plan_attack
+from foosim.engine.resolve import blast_preview, plan_attack
 from foosim.engine.rng import Rng
 from foosim.engine.state import GameState
 
 __all__ = ["GreedyPolicy", "Policy", "RandomPolicy"]
 
 _EPS = 0.01
+
+# Greedy Self Destruct trigger: HP at or below this, this many enemies in the blast,
+# no friendlies in it. The score just needs to beat every other option.
+_SD_MAX_HP = 2
+_SD_MIN_ENEMIES = 2
+_SD_SCORE = 50.0
 
 
 class Policy:
@@ -155,12 +162,24 @@ class GreedyPolicy(Policy):
             hurt = u.hp <= max(1, u.hp_max // 3)
             val = (1.6 if hurt else 0.25) + (0.5 if a.bolster == "dodge" else 0.0)
             return val - (pen * 0.5 if a.bolster else 0.0)
+        if isinstance(a, SelfDestructAction):
+            return self._score_self_destruct(state, u)
         if isinstance(a, PurgeHeatAction):
             room = u.stat("heat_limit") - u.heat
             if room <= 2:
                 return 5.0 + (2.0 if a.bolster == "reboot" and state.actions_taken == 0 else 0.0)
             return 1.0 if room <= 4 else 0.0
         return 0.0
+
+    def _score_self_destruct(self, state, u) -> float:
+        """Go out in a blast only when it is clearly worth the mech: nearly dead
+        (HP <= 2), at least two enemies inside the blast, and none of our own."""
+        if u.hp > _SD_MAX_HP:
+            return 0.0
+        _dmg, _radius, hit, _razed = blast_preview(state, u, self.rules)
+        enemies = sum(1 for oid in hit if state.units[oid].side != u.side)
+        friends = len(hit) - enemies
+        return _SD_SCORE if (enemies >= _SD_MIN_ENEMIES and friends == 0) else 0.0
 
     def _score_attack(self, state, u, a, pen, heat_cost, los_cache=None) -> float:
         t = state.units.get(a.target_id)

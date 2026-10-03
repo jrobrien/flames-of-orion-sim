@@ -23,6 +23,7 @@ from foosim.engine.actions import (
     MoveAction,
     PurgeHeatAction,
     RangedAttackAction,
+    SelfDestructAction,
 )
 from foosim.engine.events import Event, emit
 from foosim.engine.legal import is_engaged, move_budget
@@ -30,7 +31,7 @@ from foosim.engine.rng import Rng
 from foosim.engine.state import GameState, Unit, WeaponInstance
 from foosim.engine.visibility import VisibilityConfig, line_of_sight
 
-__all__ = ["AttackPlan", "apply", "plan_attack"]
+__all__ = ["AttackPlan", "apply", "blast_preview", "plan_attack"]
 
 _BLAST_CFG = VisibilityConfig(mode="strict_center")
 _RAIL_SELF_HEAT = 1  # `self_heat_1_on_use` - Rail Weapon heats its own firer
@@ -61,6 +62,8 @@ def _apply_action(s: GameState, action, rules, rng: Rng, ev: list[Event]) -> Non
         _do_disengage(s, action, rules, rng, ev)
     elif isinstance(action, PurgeHeatAction):
         _do_purge(s, action, rules, rng, ev)
+    elif isinstance(action, SelfDestructAction):
+        _do_self_destruct(s, action, rules, rng, ev)
     else:
         raise IllegalAction(f"not an executable action: {type(action).__name__}")
 
@@ -347,9 +350,11 @@ def _do_melee(s, a: MeleeAttackAction, rules, rng, ev) -> None:
              results=[self_d], total=self_d)
         emit(s, ev, "dice_roll", unit=u.id, purpose="ram_target", notation="1d3",
              results=[tgt_d], total=tgt_d)
-        _apply_damage(s, u, self_d, ap=0, cover=False, rules=rules, rng=rng, ev=ev, source=u.id)
+        _apply_damage(s, u, self_d, ap=0, cover=False, rules=rules, rng=rng, ev=ev, source=u.id,
+                      weapon="ram", cause="ram")
         if not u.out_of_action:
-            _apply_damage(s, t, tgt_d, ap=0, cover=False, rules=rules, rng=rng, ev=ev, source=u.id)
+            _apply_damage(s, t, tgt_d, ap=0, cover=False, rules=rules, rng=rng, ev=ev,
+                          source=u.id, weapon="ram", cause="ram")
         return
 
     for i in _indices_for(u, a, "melee", a.bolster == "fury"):
@@ -438,7 +443,8 @@ def _resolve_attack(s, u, t, weap: WeaponInstance, wspec, rules, rng, ev, *,
         return
 
     ap = _ap_for(weap, wspec, t, rules) + (1 if lance_charge else 0)
-    _apply_damage(s, t, dmg, ap=ap, cover=cover, rules=rules, rng=rng, ev=ev, source=u.id)
+    _apply_damage(s, t, dmg, ap=ap, cover=cover, rules=rules, rng=rng, ev=ev, source=u.id,
+                  weapon=weap.weapon_id, cause="weapon")
 
 
 def _lance_charge(specials: set, u: Unit) -> bool:
@@ -625,9 +631,26 @@ def _do_purge(s, a: PurgeHeatAction, rules, rng, ev) -> None:
 # --------------------------------------------------------------------------
 
 
-def _apply_damage(s, t: Unit, dmg: int, *, ap: int, cover: bool, rules, rng, ev, source) -> None:
+_SAME = object()  # `dealer` default: the credited `source`
+
+
+def _apply_damage(
+    s, t: Unit, dmg: int, *, ap: int, cover: bool, rules, rng, ev, source,
+    weapon: str | None = None, cause: str = "other", dealer=_SAME,
+) -> None:
+    """Resolve ``dmg`` against ``t``'s armor and emit the ``damage`` event.
+
+    ``source`` is who gets *kill credit* (explosion chains credit the killer). The
+    event also carries what analysis needs: ``dealer`` (the mech whose gear did it -
+    the exploder for blasts), ``weapon`` (a weapon id, or the synthetic ``explosion`` /
+    ``self_destruct`` / ``ram`` / ``terrain_collapse``), ``cause`` and ``friendly``
+    (target on the dealer's own side). Friendly damage - notably a Rail Weapon's slug
+    hitting teammates in its lane - is flagged here and left out of every damage-dealt
+    metric (see ``sim.analyze``)."""
     if dmg <= 0 or t.out_of_action:
         return
+    if dealer is _SAME:
+        dealer = source
     if t.reactive_armor_left > 0:
         soak = min(t.reactive_armor_left, dmg)
         t.reactive_armor_left -= soak
@@ -649,8 +672,10 @@ def _apply_damage(s, t: Unit, dmg: int, *, ap: int, cover: bool, rules, rng, ev,
     if through > 0:
         before = t.hp
         t.hp = max(0, t.hp - through)
+        d = s.units.get(dealer) if dealer else None
         emit(s, ev, "damage", target=t.id, amount=through, hp_before=before, hp_after=t.hp,
-             source=source)
+             source=source, dealer=dealer, weapon=weapon, cause=cause,
+             friendly=d is not None and d.side == t.side)
     if t.hp <= 0:
         _explode_check(s, t, rng, rules, ev, cause="damage", credited_to=source)
 
@@ -687,6 +712,12 @@ def _explode_check(s, u: Unit, rng, rules, ev, *, cause: str, credited_to=None) 
         _out_of_action(s, u, ev, cause=cause)
         return
 
+    _explode(s, u, rules, rng, ev, cause=cause, credited_to=credited_to, weapon="explosion")
+
+
+def _blast(s, u: Unit, rules) -> tuple[int, int, list, list]:
+    """(damage, radius_hexes, affected unit ids, razed terrain hexes) if ``u`` blew up
+    now. Radius in inches equals current HEAT; a Nuclear Core counts as at least 10."""
     heat = max(0, u.heat)
     if "nuclear_core" in u.upgrades:
         heat = max(heat, int(rules.upgrade("nuclear_core")["effect"]["explode_as_heat"]))
@@ -705,14 +736,42 @@ def _explode_check(s, u: Unit, rng, rules, ev, *, cause: str, credited_to=None) 
         and hexgrid.distance(u.pos, h) <= radius
         and line_of_sight(s, u.pos, h, _BLAST_CFG).los
     ]
+    return dmg, radius, affected, razed
+
+
+def blast_preview(state, unit: Unit, rules) -> tuple[int, int, list[str], list]:
+    """Public, pure view of what ``unit`` exploding right now would do:
+    ``(damage, radius_hexes, affected_unit_ids, razed_terrain_hexes)``. Used by bots
+    deciding whether to Self Destruct."""
+    return _blast(state, unit, rules)
+
+
+def _explode(s, u: Unit, rules, rng, ev, *, cause: str, credited_to, weapon: str) -> None:
+    """The blast itself. ``weapon`` names the synthetic weapon its damage is booked to:
+    ``explosion`` (a mech dying and going up) or ``self_destruct`` (the upgrade) - kept
+    separate so analysis can value them independently."""
+    dmg, radius, affected, razed = _blast(s, u, rules)
     emit(s, ev, "explosion", unit=u.id, damage=dmg, radius=radius, affected=affected,
-         terrain_razed=[[h.q, h.r] for h in razed])
+         terrain_razed=[[h.q, h.r] for h in razed], weapon=weapon)
     _out_of_action(s, u, ev, cause=cause)  # remove before chaining so it can't re-trigger
     for oid in affected:
         _apply_damage(s, s.units[oid], dmg, ap=0, cover=False, rules=rules, rng=rng, ev=ev,
-                      source=credited_to or u.id)
+                      source=credited_to or u.id, weapon=weapon, cause="explosion", dealer=u.id)
     for h in razed:
         _raze_terrain(s, h, ev, rules, rng, source=credited_to or u.id)
+
+
+def _do_self_destruct(s, a: SelfDestructAction, rules, rng, ev) -> None:
+    u = s.units[a.unit_id]
+    if "self_destruct" not in u.upgrades:
+        raise IllegalAction("unit has no Self Destruct upgrade")
+    floor = int(rules.upgrade("self_destruct")["effect"]["self_destruct_min_heat"])
+    if u.heat < floor:
+        raise IllegalAction(f"Self Destruct needs {floor}+ HEAT")
+    u.hp = 0
+    emit(s, ev, "self_destruct", unit=u.id, heat=u.heat)
+    _explode(s, u, rules, rng, ev, cause="self_destruct", credited_to=u.id,
+             weapon="self_destruct")
 
 
 def _raze_terrain(s, h, ev, rules, rng, *, source) -> None:
@@ -724,7 +783,8 @@ def _raze_terrain(s, h, ev, rules, rng, *, source) -> None:
     # RULES p.20: 1 damage to every model within 2" of the rubble
     for o in list(s.units.values()):
         if not o.out_of_action and hexgrid.distance(h, o.pos) <= rules.inches_to_hexes(2):
-            _apply_damage(s, o, 1, ap=0, cover=False, rules=rules, rng=rng, ev=ev, source=source)
+            _apply_damage(s, o, 1, ap=0, cover=False, rules=rules, rng=rng, ev=ev, source=source,
+                          weapon="terrain_collapse", cause="terrain")
 
 
 # --------------------------------------------------------------------------
@@ -778,7 +838,7 @@ def _catastrophic_token(s, t: Unit, token: str, rules, rng, ev) -> int:
             victim = rng.choice(near)
             emit(s, ev, "ricochet", target=victim.id, amount=1)
             _apply_damage(s, victim, 1, ap=0, cover=False, rules=rules, rng=rng, ev=ev,
-                          source=t.id)
+                          source=t.id, weapon="ricochet", cause="catastrophic", dealer=None)
         return 0
     if ":" in token:
         stat, _, raw = token.partition(":")
