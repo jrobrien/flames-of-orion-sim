@@ -17,6 +17,7 @@ __all__ = [
     "HANDLED_SPECIALS",
     "HANDLED_UPGRADE_EFFECTS",
     "ammo_supported",
+    "perk_supported",
     "upgrade_supported",
     "weapon_supported",
 ]
@@ -73,6 +74,12 @@ DEFERRED_UPGRADE_EFFECTS = frozenset({
 })
 
 
+# Experience-perk effects the sim honours. Perks are baked into the unit's stats at
+# build time, so only plain stat deltas work; CS-for-melee/ranged and the rest need
+# resolver support first.
+HANDLED_PERK_EFFECTS = frozenset({"speed_delta", "heat_limit_delta"})
+
+
 def _specials(spec: dict) -> set[str]:
     return set(spec.get("special", []))
 
@@ -89,3 +96,8 @@ def upgrade_supported(uspec: dict) -> bool:
     if not _specials(uspec) <= HANDLED_SPECIALS:
         return False
     return set(uspec.get("effect", {})) <= HANDLED_UPGRADE_EFFECTS
+
+
+def perk_supported(pspec: dict) -> bool:
+    eff = set(pspec.get("effect", {}))
+    return bool(eff) and eff <= HANDLED_PERK_EFFECTS

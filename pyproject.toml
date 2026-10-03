@@ -24,6 +24,7 @@ dev = ["pytest>=8.0", "ruff>=0.6.0"]
 foosim-autobattle = "foosim.sim.autobattle:main"
 foosim-analyze = "foosim.sim.analyze:main"
 foosim-gen-unit = "foosim.sim.generate:main"
+foosim-sheet = "foosim.sim.sheet:main"
 foosim-ui = "foosim.ui.app:main"
 
 [tool.hatch.build.targets.wheel]

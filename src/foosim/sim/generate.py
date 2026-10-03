@@ -2,7 +2,9 @@
 
   foosim-gen-unit --seed 3 --count 4
 
-``generate_mech`` fills a frame's Platform slots by rolling weapons (d8) and
+``generate_squad`` builds a quick-play squad (Heavy leader with one perk, 2 Medium,
+1 Light) - the same logic behind the printable ``foosim-sheet``. ``generate_mech``
+fills a frame's Platform slots by rolling weapons (d8) and
 upgrades (d20); Heavy Weapon eats 2 slots, Extra Platforms grants one. Call signs
 come from the two d66 tables. ``random_setup`` drops two generated units on the
 skirmish map for varied auto-battles.
@@ -12,7 +14,12 @@ from __future__ import annotations
 
 import argparse
 
-from foosim.engine.effects import ammo_supported, upgrade_supported, weapon_supported
+from foosim.engine.effects import (
+    ammo_supported,
+    perk_supported,
+    upgrade_supported,
+    weapon_supported,
+)
 from foosim.engine.hexgrid import Hex, from_offset_oddr
 from foosim.engine.rng import Rng
 from foosim.engine.rules import Ruleset
@@ -21,7 +28,18 @@ from foosim.engine.state import GameState, MapSpec, Unit, WeaponInstance
 from foosim.sim.build import apply_upgrades
 from foosim.sim.setups import _zone_rows, city_terrain, scatter_terrain
 
-__all__ = ["call_sign", "generate_combat_unit", "generate_mech", "random_setup"]
+__all__ = [
+    "SQUAD_FRAMES",
+    "call_sign",
+    "generate_combat_unit",
+    "generate_mech",
+    "generate_squad",
+    "pick_perk",
+    "random_setup",
+]
+
+# Quick-play squad makeup: a Heavy squad leader, two Mediums and a Light.
+SQUAD_FRAMES = ("heavy", "medium", "medium", "light")
 
 _RANGED_BY_ROLL: dict[int, str] = {}
 _MELEE_BY_ROLL: dict[int, str] = {}
@@ -49,13 +67,14 @@ def generate_mech(
     pos: Hex | None = None,
     ammo_chance: float = 0.4,
     supported_only: bool = True,
+    frame: str | None = None,
 ) -> Unit:
     """Roll a mech from the Black Market tables. With ``supported_only`` (default)
     a rolled weapon/upgrade/ammo whose ``special`` behaviour is not implemented
     yet (see ``engine.effects``) is skipped and re-rolled, so random mechs never
-    carry inert gear."""
+    carry inert gear. ``frame`` forces light/medium/heavy instead of rolling one."""
     _index(rules)
-    frame = rules.frame_for_roll(rng.d6())
+    frame = frame or rules.frame_for_roll(rng.d6())
     f = rules.frame(frame)
     slots = int(f["platform_slots"])
 
@@ -115,15 +134,46 @@ def generate_mech(
     return unit
 
 
+def pick_perk(rules: Ruleset, rng: Rng, u: Unit, *, supported_only: bool = True) -> dict:
+    """Give ``u`` one random Experience perk (optional rules, p.21) and bake its stat
+    delta in. Never a melee bonus on a mech with no melee weapon or a ranged bonus on
+    one with no ranged weapon; with ``supported_only`` only perks the sim can honour."""
+    kinds = {w.kind for w in u.weapons} | {"any"}
+    ok = [
+        p for p in rules.raw["perks"]
+        if p.get("requires", "any") in kinds and (not supported_only or perk_supported(p))
+    ]
+    perk = ok[rng.randint(0, len(ok) - 1)]
+    eff = perk.get("effect", {})
+    u.speed += int(eff.get("speed_delta", 0))
+    u.heat_limit += int(eff.get("heat_limit_delta", 0))
+    return perk
+
+
+def generate_squad(
+    rules: Ruleset, rng: Rng, side: int, *, n: int = 4, id_prefix: str = "U",
+    supported_only: bool = True,
+) -> tuple[list[Unit], dict]:
+    """A quick-play squad: Heavy leader (first unit, one perk), two Mediums, a Light;
+    extra units beyond four are Mediums. Returns the units and the leader's perk."""
+    units: list[Unit] = []
+    perk: dict = {}
+    for i in range(n):
+        frame = SQUAD_FRAMES[i] if i < len(SQUAD_FRAMES) else "medium"
+        u = generate_mech(rules, rng, id=f"{id_prefix}{i + 1}", side=side, frame=frame,
+                          supported_only=supported_only)
+        if i == 0:
+            perk = pick_perk(rules, rng, u, supported_only=supported_only)
+        units.append(u)
+    return units, perk
+
+
 def generate_combat_unit(
     rules: Ruleset, rng: Rng, side: int, *, n: int = 4, id_prefix: str = "U",
     supported_only: bool = True,
 ) -> list[Unit]:
-    return [
-        generate_mech(rules, rng, id=f"{id_prefix}{i + 1}", side=side,
-                      supported_only=supported_only)
-        for i in range(n)
-    ]
+    return generate_squad(rules, rng, side, n=n, id_prefix=id_prefix,
+                          supported_only=supported_only)[0]
 
 
 def random_setup(

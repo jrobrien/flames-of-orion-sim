@@ -129,3 +129,23 @@ def test_random_setup_plays_a_full_game():
     final, events, _ = run_game(gs, pols, RULES)
     assert final.winner in (0, 1, -1)
     assert any(e.kind == "game_over" for e in events)
+
+
+def test_squad_is_heavy_leader_two_medium_one_light_with_supported_perk():
+    from foosim.engine.effects import perk_supported
+    from foosim.sim.generate import generate_squad
+
+    for seed in range(40):
+        units, perk = generate_squad(RULES, Rng.from_seed(seed), 0)
+        assert [u.profile for u in units] == [
+            "mech.heavy", "mech.medium", "mech.medium", "mech.light",
+        ]
+        assert perk_supported(perk)
+        assert all(u.platforms >= 3 for u in units)
+
+
+def test_random_setup_squads_use_quick_play_makeup():
+    gs = random_setup(RULES, seed=2)
+    for side in (0, 1):
+        frames = sorted(u.profile for u in gs.units.values() if u.side == side)
+        assert frames == ["mech.heavy", "mech.light", "mech.medium", "mech.medium"]

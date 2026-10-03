@@ -154,6 +154,7 @@ ignores_terrain_on_move = true
 
 [[ranged_weapons]]
 id = "flame_thrower"
+cost = 10000
 roll = 1
 name = "Flame Thrower"
 damage = "1"
@@ -163,6 +164,7 @@ special = ["target_heat_1d2_on_hit", "no_specialty_ammo"]
 
 [[ranged_weapons]]
 id = "light_weapon"
+cost = 10000
 roll = 2
 name = "Light Weapon"
 damage = "1"
@@ -170,6 +172,7 @@ platform_slots = 1
 
 [[ranged_weapons]]
 id = "medium_weapon"
+cost = 15000
 roll = 3
 name = "Medium Weapon"
 damage = "2"
@@ -177,6 +180,7 @@ platform_slots = 1
 
 [[ranged_weapons]]
 id = "heavy_weapon"
+cost = 25000
 roll = 4
 name = "Heavy Weapon"
 damage = "4"
@@ -185,6 +189,7 @@ special = ["half_speed_if_fired"]
 
 [[ranged_weapons]]
 id = "rail_weapon"
+cost = 45000
 roll = 5
 name = "Rail Weapon"
 damage = "d3"
@@ -194,6 +199,7 @@ special = ["line_attack", "self_heat_1_on_use", "hits_friendlies",
 
 [[ranged_weapons]]
 id = "ai_missile_system"
+cost = 15000
 roll = 6
 name = "A.I. Missile System"
 damage = "1"
@@ -203,6 +209,7 @@ special = ["ignores_los", "ignores_cover", "ignores_long_range_penalty"]
 
 [[ranged_weapons]]
 id = "long_range_systems"
+cost = 25000
 roll = 7
 name = "Long Range Systems"
 damage = "2"
@@ -211,6 +218,7 @@ special = ["armor_penetration", "ignores_long_range_penalty"]
 
 [[ranged_weapons]]
 id = "large_missile_battery"
+cost = 30000
 roll = 8
 name = "Large Missile Battery"
 damage = "d2"
@@ -223,6 +231,7 @@ special = ["splash_2in"]
 
 [[melee_weapons]]
 id = "basic_combat_attachment"
+cost = 5000
 roll = 1
 name = "Basic Combat Attachment"
 damage = "1"
@@ -230,6 +239,7 @@ platform_slots = 1
 
 [[melee_weapons]]
 id = "close_combat_weapon"
+cost = 10000
 roll = 2
 name = "Close Combat Weapon"
 damage = "2"
@@ -237,6 +247,7 @@ platform_slots = 1
 
 [[melee_weapons]]
 id = "cable_whip"
+cost = 15000
 roll = 3
 name = "Cable Whip"
 damage = "2"
@@ -246,6 +257,7 @@ special = ["engagement_range_3in"]
 
 [[melee_weapons]]
 id = "lance"
+cost = 20000
 roll = 4
 name = "Lance"
 damage = "1"
@@ -254,6 +266,7 @@ special = ["plus2_damage_and_ap_if_moved"]
 
 [[melee_weapons]]
 id = "power_weapon"
+cost = 15000
 roll = 5
 name = "Power Weapon"
 damage = "2"
@@ -262,6 +275,7 @@ special = ["armor_penetration", "burnout_on_1_lose_ap"]
 
 [[melee_weapons]]
 id = "electric_field"
+cost = 10000
 roll = 6
 name = "Electric Field"
 damage = "1"
@@ -270,6 +284,7 @@ special = ["hits_all_within_2in", "push_1in"]
 
 [[melee_weapons]]
 id = "piston_gauntlet"
+cost = 10000
 roll = 7
 name = "Piston Gauntlet"
 damage = "2"
@@ -278,6 +293,7 @@ special = ["push_target_1in_on_hit"]
 
 [[melee_weapons]]
 id = "energy_sword"
+cost = 15000
 roll = 8
 name = "Energy Sword"
 damage = "2"
@@ -290,36 +306,42 @@ special = ["crit_on_5plus", "burnout_on_1_becomes_1dmg"]
 
 [[ammo]]
 id = "flechette_rounds"
+cost = 5000
 roll = 1
 name = "Flechette Rounds"
 special = ["armor_penetration"]
 
 [[ammo]]
 id = "hellfire_rounds"
+cost = 10000
 roll = 2
 name = "Hellfire Rounds"
 special = ["plus1_damage"]
 
 [[ammo]]
 id = "emf_rounds"
+cost = 10000
 roll = 3
 name = "EMF Rounds"
 special = ["target_minus2_speed_until_next_activation"]
 
 [[ammo]]
 id = "concussive_rounds"
+cost = 5000
 roll = 4
 name = "Concussive Rounds"
 special = ["push_target_2in", "collision_1_damage"]
 
 [[ammo]]
 id = "rapid_fire_rounds"
+cost = 20000
 roll = 5
 name = "Rapid Fire Rounds"
 special = ["extra_attack_on_hit_roll_6"]
 
 [[ammo]]
 id = "tracer_rounds"
+cost = 5000
 roll = 6
 name = "Tracer Rounds"
 special = ["target_position_compromised", "self_position_compromised"]
@@ -334,30 +356,35 @@ run_out_rolls = [1, 2, 3]      # end of game, per ammo: d6 in this set -> deplet
 
 [[upgrades]]
 id = "armor_mk1"
+cost = 10000
 roll = 1
 name = "Armor Mk I"
 effect = { set_armor = 5 }
 
 [[upgrades]]
 id = "armor_mk2"
+cost = 25000
 roll = 2
 name = "Armor Mk II"
 effect = { set_armor = 4 }
 
 [[upgrades]]
 id = "reactive_armor"
+cost = 50000
 roll = 3
 name = "Reactive Armor"
 effect = { ignore_first_damage = 1 }
 
 [[upgrades]]
 id = "vtol"
+cost = 25000
 roll = 4
 name = "VTOL"
 effect = { ignores_terrain_on_move = true }
 
 [[upgrades]]
 id = "thrusters"
+cost = 10000
 roll = 5
 name = "Thrusters"
 stackable = true
@@ -365,18 +392,21 @@ effect = { speed_delta = 1 }
 
 [[upgrades]]
 id = "heat_sink"
+cost = 10000
 roll = 6
 name = "Heat Sink"
 effect = { heat_check_table = "check_heat_sink" }
 
 [[upgrades]]
 id = "sensor_array"
+cost = 25000
 roll = 7
 name = "Sensor Array"
 effect = { crit_bonus_damage = 1 }
 
 [[upgrades]]
 id = "heavy_plating"
+cost = 20000
 roll = 8
 name = "Heavy Plating"
 stackable = true
@@ -384,6 +414,7 @@ effect = { hull_points_delta = 1 }
 
 [[upgrades]]
 id = "core_stabilizers"
+cost = 10000
 roll = 9
 name = "Core Stabilizers"
 stackable = true
@@ -391,6 +422,7 @@ effect = { heat_limit_delta = 2 }
 
 [[upgrades]]
 id = "extra_platforms"
+cost = 15000
 roll = 10
 name = "Extra Platforms"
 stackable = true
@@ -398,12 +430,14 @@ effect = { platform_slots_delta = 1, free_slot = true }
 
 [[upgrades]]
 id = "self_destruct"
+cost = 10000
 roll = 11
 name = "Self Destruct"
 special = ["action_self_destruct_at_heat_7"]
 
 [[upgrades]]
 id = "camouflage"
+cost = 30000
 roll = 12
 name = "Camouflage"
 special = ["action_active_camo"]
@@ -411,12 +445,14 @@ effect = { enemy_ranged_cs_penalty = 1 }
 
 [[upgrades]]
 id = "nuclear_core"
+cost = 10000
 roll = 13
 name = "Nuclear Core"
 effect = { explode_as_heat = 10 }
 
 [[upgrades]]
 id = "targeting_system"
+cost = 45000
 roll = 14
 name = "Targeting System"
 # CS numbers are the d6 target; "+1 CS" (easier) lowers it. See RULES.md sign note.
@@ -424,39 +460,92 @@ effect = { cs_delta = -1 }
 
 [[upgrades]]
 id = "up_link"
+cost = 15000
 roll = 15
 name = "Up-Link"
 special = ["action_uplink_position_compromised"]
 
 [[upgrades]]
 id = "long_range_targeting"
+cost = 15000
 roll = 16
 name = "Long Range Targeting"
 effect = { ignores_long_range_penalty = true }
 
 [[upgrades]]
 id = "defense_array"
+cost = 10000
 roll = 17
 name = "Defense Array"
 special = ["repel_within_1in_on_4plus"]
 
 [[upgrades]]
 id = "thermal_imaging"
+cost = 20000
 roll = 18
 name = "Thermal Imaging"
 effect = { cs_delta_vs_hot_target = -1, hot_threshold = 5 }
 
 [[upgrades]]
 id = "counter_missiles"
+cost = 10000
 roll = 19
 name = "Counter Missiles"
 effect = { negate_ranged_crit_bonus_damage = true }
 
 [[upgrades]]
 id = "virus_program"
+cost = 20000
 roll = 20
 name = "Virus Program"
 special = ["action_infect_once_per_game"]
+
+# --------------------------------------------------------------------------
+# Optional-rules Experience perks (rulebook p.21): at 5 XP a model picks one.
+# 'requires' limits a perk to mechs carrying that weapon kind ("melee"/"ranged");
+# 'effect' stat deltas are baked into the unit sheet, the rest is a note.
+# --------------------------------------------------------------------------
+
+[[perks]]
+id = "calm_and_collected"
+name = "Calm & Collected"
+text = "+1 to HEAT Check rolls"
+
+[[perks]]
+id = "demolition_expert"
+name = "Demolition Expert"
+text = "Buildings damaged by this model's weapons are destroyed"
+
+[[perks]]
+id = "running_hot"
+name = "Running Hot"
+text = "Double the radius of this model's explosion"
+
+[[perks]]
+id = "close_combat_expert"
+name = "Close Combat Expert"
+text = "+1 CS for melee attacks"
+requires = "melee"
+effect = { cs_delta_melee = 1 }
+
+[[perks]]
+id = "ranged_expert"
+name = "Ranged Expert"
+text = "+1 CS for ranged attacks"
+requires = "ranged"
+effect = { cs_delta_ranged = 1 }
+
+[[perks]]
+id = "heat_expert"
+name = "HEAT Expert"
+text = "+1 HEAT Limit"
+effect = { heat_limit_delta = 1 }
+
+[[perks]]
+id = "hydraulics_overhaul"
+name = "Hydraulics Overhaul"
+text = "+1 Speed"
+effect = { speed_delta = 1 }
 
 # --------------------------------------------------------------------------
 # Catastrophic Damage table (roll 2d6 after a confirmed catastrophic crit).
