@@ -6,9 +6,18 @@ rules-testing simulator.
 
 ## Quick-play unit sheets (print and play)
 
-Don't want to run any code? Download a pre-rolled sheet, print it, and play.
+Don't want to run any code? Use the web generator, or download a pre-rolled sheet, print
+it, and play.
 
-**[Download squads.pdf](docs/sheets/squads.pdf)** (64 squads, 64 pages, 5.4 MB)
+### **[Open the sheet generator](https://jrobrien.github.io/flames-of-orion-sim/)**
+
+Pick a seed, how many squads, the frame mix (default 1 Heavy / 2 Medium / 1 Light),
+whether the leader gets a perk and whether mechs can carry ammo, then print or save as
+PDF. It runs entirely in your browser (no backend); the source is in
+[`docs/`](docs/index.html).
+
+Or grab a ready-made file: **[squads.pdf](docs/sheets/squads.pdf)** (64 squads,
+64 pages, 5.4 MB).
 
 Plus a one-page [**blank sheet**](docs/sheets/blank.pdf) to fill in by hand (20 heat and
 10 HP circles per mech, 8 platform rows); print as many copies as you need.
@@ -37,9 +46,9 @@ implement yet.
 
 > Fan-made and unofficial. Buy the game: <https://underthedice.com/flamesoforion/>.
 
-### Make your own sheets
+### Make your own sheets (command line)
 
-`foosim-sheet` writes the same pages as a self-contained HTML file; open it in a browser
+`foosim-sheet` (Python) writes the same kind of pages as a self-contained HTML file; open it in a browser
 and print (Letter, portrait; "Save as PDF" works too). See [Getting started](#getting-started)
 for the one-time `uv sync`.
 

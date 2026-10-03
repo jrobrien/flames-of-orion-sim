@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Flames of Orion Quick-Play Sheets</title>
+<link rel="stylesheet" href="sheet.css">
+<style id="pagesize">@page { size: letter portrait; margin: 0.3in; }</style>
+<style>
+  :root { --bg: #e4e4e4; --panel: #fff; --ink: #111; --muted: #555; --line: #999; --accent: #111; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #1b1b1b; --panel: #262626; --ink: #eee; --muted: #aaa; --line: #555; --accent: #eee; }
+  }
+  html { background: var(--bg); }
+  body { margin: 0; padding: 12px 16px 40px; color: var(--ink); background: var(--bg);
+         font: 15px/1.4 system-ui, sans-serif; }
+  .controls { max-width: 7.8in; margin: 0 auto 16px; padding: 14px 16px; background: var(--panel);
+              border: 1px solid var(--line); border-radius: 6px; }
+  .controls h1 { margin: 0 0 4px; font-size: 20px; }
+  .controls p { margin: 0 0 10px; color: var(--muted); font-size: 13px; }
+  .row { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: flex-end; margin-bottom: 10px; }
+  label { display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: var(--muted); }
+  label.check { flex-direction: row; align-items: center; gap: 6px; font-size: 14px; color: var(--ink); }
+  input[type=text], input[type=number], select { font: inherit; padding: 4px 6px; color: var(--ink);
+    background: var(--bg); border: 1px solid var(--line); border-radius: 4px; }
+  input[type=number] { width: 4.2em; }
+  input[type=text] { width: 9em; }
+  fieldset { border: 1px solid var(--line); border-radius: 4px; padding: 4px 10px 8px; margin: 0; }
+  fieldset.bad { border-color: #c33; }
+  legend { font-size: 12px; color: var(--muted); }
+  fieldset .row { margin: 0; }
+  button { font: inherit; padding: 6px 12px; border: 1px solid var(--line); border-radius: 4px;
+           background: var(--panel); color: var(--ink); cursor: pointer; }
+  button.primary { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+  a { color: inherit; }
+  #warn { color: #c33; font-size: 13px; min-height: 1.2em; }
+  .tip { font-size: 12px; color: var(--muted); }
+  #sheets { overflow-x: auto; }
+  @media print {
+    html, body { background: #fff; padding: 0; }
+    .controls { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="controls">
+  <h1>Flames of Orion quick-play sheets</h1>
+  <p>Roll random squads &mdash; a Heavy leader, two Mediums and a Light &mdash; and print them.
+     Fan-made, from the free edition rules; buy the game at
+     <a href="https://underthedice.com/flamesoforion/">underthedice.com</a>.</p>
+  <div class="row">
+    <label>Seed <input type="text" id="seed" autocomplete="off" spellcheck="false"></label>
+    <label>Squads (pages) <input type="number" id="squads" min="1" max="64" value="2"></label>
+    <fieldset id="mix-fields"><legend>Frames per squad (total 4)</legend>
+      <div class="row">
+        <label>Heavy <input type="number" id="heavy" min="0" max="4" value="1"></label>
+        <label>Medium <input type="number" id="medium" min="0" max="4" value="2"></label>
+        <label>Light <input type="number" id="light" min="0" max="4" value="1"></label>
+      </div>
+    </fieldset>
+    <label>Paper <select id="paper"><option value="letter">Letter</option><option value="A4">A4</option></select></label>
+  </div>
+  <div class="row">
+    <span id="gen-only" class="row" style="margin:0">
+      <label class="check"><input type="checkbox" id="perk" checked> Squad leader perk</label>
+      <label class="check"><input type="checkbox" id="ammo" checked> Specialty ammo</label>
+    </span>
+    <label class="check"><input type="checkbox" id="blank"> Blank sheets</label>
+  </div>
+  <div class="row">
+    <button id="reroll">Re-roll</button>
+    <button id="print" class="primary">Print / Save as PDF</button>
+    <button id="copy">Copy link</button>
+  </div>
+  <div id="warn"></div>
+  <div class="tip">Tip: in the print dialog turn off headers/footers. The link keeps your seed and options.
+     The leader is the first mech on each page; its perk is never a melee bonus on a mech with no melee weapon (or ranged on no ranged).</div>
+</div>
+<div id="sheets"></div>
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

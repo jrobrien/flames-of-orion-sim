@@ -241,7 +241,7 @@ body { margin: 0; font: 10px/1.2 "DejaVu Sans Condensed", "Arial Narrow", Arial,
 .s { width: 56%; } .w { width: 27%; } .d { width: 6%; text-align: center; }
 .c { width: 11%; text-align: right; }
 .plat td.c { font-size: 8px; white-space: nowrap; }
-.plat td.w { font-weight: bold; } .plat td.s { font-size: 7.5px; }
+.plat td.w { font-weight: bold; } .plat td.s { font-size: 8.5px; }
 .foot2 { display: flex; border-top: 1.5px solid #000; height: 0.3in; }
 .notes { flex: 1; padding: 1px 6px; font-size: 8px; }
 .total { width: 1.6in; border-left: 1.5px solid #000; padding: 1px 6px; font-size: 8px;
